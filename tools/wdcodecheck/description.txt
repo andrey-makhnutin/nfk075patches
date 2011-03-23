@@ -1,0 +1,1 @@
+Used to check offsets (that is, macro exeAddr) in wd.asm before assembling it. Improperly ordered offsets may lead to NULL pointers.

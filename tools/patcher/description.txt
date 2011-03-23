@@ -1,0 +1,1 @@
+Used to merge wd.exe with clean NFK executable, producing patched NFK executable.
