@@ -17,6 +17,8 @@ MMP_LOBBY_GAMESTATE_RESULT	equ		85
 MMP_SPECTATORDISCONNECT		equ		38
 MMP_IAMQUIT	equ		75
 
+Gametype_DOM	equ	7
+
 exeAddr MACRO va
 org va - 401000h
 ENDM
@@ -63,7 +65,10 @@ PStrNCat:	nop
 exeAddr 402B28h
 PStrCpy:	nop
 exeAddr	402B44h
-PStrNCpy:	nop
+PStrNCpy:	nop			;params: 
+							;eax - destination:	shortstring
+							;edx - source:		shortstring
+							;cl - destSize:		byte
 exeAddr	402B74h
 PStrCmp:	nop
 
@@ -90,7 +95,9 @@ exeAddr 403D39h
 l403D39:    nop
 
 exeAddr 403E70h
-StringToLStr:	nop
+StringToLStr:	nop		;params:
+							;eax - destination: PLStr
+							;edx - source:		shortstring
 
 exeAddr	403EA8h
 LStrToString:	nop
@@ -516,6 +523,9 @@ patch114_end:
 
 exeAddr 49CB38h
 IsWaterContentHEAD: nop
+
+exeAddr	4AB800h
+DOM_Think:	nop
 
 exeAddr 4B2014h
 playsound:  nop
@@ -1132,7 +1142,19 @@ getChecksum endp
 patch31_end:
 
 exeAddr	4EF7F7h
-secondTickNotClient:	nop
+secondTickNotClient:
+patch144_begin:
+	call	ismultip
+	cmp		al, 1
+	jnz		secondTickNotServer
+	jmp		new_secondTickServer
+patch144_end:
+	
+exeAddr	4EF812h
+secondTickTimeoutPlayers:	nop
+	
+exeAddr	4F094Bh
+secondTickNotServer:	nop
 
 exeAddr 4F0FD9h
 endOfSecondEvent:   nop
@@ -1354,6 +1376,12 @@ BNET_NFK_ReceiveData_default:	nop
 
 exeAddr	516B48h
 BNET_NFK_ReceiveData_nullStr	dd	0
+
+exeAddr	516DECh
+str_droppedByTimeout	db	0	; shortstring ' ^7^ndropped by timeout.'
+
+exeAddr	516E54h
+str_Spectator	db	0	; shortstring 'Spectator '
 
 exeAddr	517609h
 patch67_begin:
@@ -1699,6 +1727,9 @@ BNET_OLDGAMEIP	dd	0
 exeAddr	54BEF8h
 ENABLE_PROTECT	db	0
 
+exeAddr	54BF3Ch
+SPECTATOR_TIMEOUT	dw	7000
+
 exeAddr 54C274h
 pingsend_tick   dd  0
 
@@ -1707,6 +1738,9 @@ SYS_MAXAIR  db  0
 
 exeAddr	54CB68h
 OPT_NETSPECTATOR	db	0
+
+exeAddr	54CCB0h
+MATCH_GAMETYPE		db	0
 
 exeAddr 54CDA0h
 STIME   dd  0
@@ -2462,7 +2496,7 @@ on_MMP_PING_distribute	proc	; jump on on_MMP_PING_do_distribute if ping distribu
 	mov		eax, [edi + 1]
 	cmp		eax, 0FFFFFFFFh
 	; if no spectator, distribute
-	jz		on_MMP_PING_do_distribute
+	jnz		on_MMP_PING_do_distribute
 	; if spectator, find out which one was that
 	mov		eax, SpectatorList
 	mov		eax, [eax + 8]		;TList.Count
@@ -2496,6 +2530,93 @@ exit:
 	jmp		on_MMP_PING_no_distribute	
 on_MMP_PING_distribute	endp
 patch141_end:
+
+patch143_begin:
+new_secondTickServer	proc	; function insertion, no prolog or epilog
+								; can use ebx
+;----------- local variables -------
+	i	EQU		<[ebp - 0Ch]>	; integer
+;-----------------------------------
+	; old code
+	cmp		MATCH_GAMETYPE, Gametype_DOM
+	jnz		@F
+	call	DOM_Think
+@@:
+	; timeout spectators
+	mov		ebx, SpectatorList
+	mov		eax, [ebx + 8]		;TList.Count
+	cmp		eax, 0
+	jle		noSpectators
+	push	eax					; [esp] is now Count
+	xor		edx, edx
+	mov		i, edx
+spectatorsLoop:					; edx must contain index at this point
+	mov		eax, SpectatorList
+	call	TList_Get
+	mov		ebx, eax
+	mov		edx, STIME
+	sub		edx, [eax + 34h]	;TSpectator.lastPingTime
+	cmp		dx, SPECTATOR_TIMEOUT
+	jl		nextSpectator
+	; spectator timeouted
+	
+	; say it
+	; reserve buffer for shortstring[64] (68 bytes aligned) and LStr conversion buffer (4 bytes)
+	; so we will have shortstring at [esp] and LString at [esp + 44h]
+	push	0					; init LString with 0
+	sub		esp, 44h
+	; build string
+	mov		eax, esp
+	lea		edx, str_Spectator
+	mov		cl, 44h
+	call	PStrNCpy
+	mov		eax, esp
+	mov		edx, ebx			;TSpectator.netname
+	mov		cl, 44h
+	call	PStrNCat
+	mov		eax, esp
+	lea		edx, str_droppedByTimeout
+	mov		cl, 44h
+	call	PStrNCat
+	lea		eax, [esp + 44h]
+	mov		edx, esp
+	call	StringToLStr
+	mov		eax, [esp + 44h]
+	call	AddMessage
+	; cleanup
+	lea		eax, [esp + 44h]
+	call	LStrClr
+	
+	; Send MMP_SPECTATORDISCONNECT
+	; we will reuse allocated 48h bytes for MMP_SPECTATORDISCONNECT message
+	mov		byte ptr [esp], MMP_SPECTATORDISCONNECT
+	lea		eax, [esp + 1]		;TMMP_SpectatorDisconnect.netname
+	mov		edx, ebx			;TSpectator.netname
+	mov		ecx, 1Eh
+	call	PStrNCpy
+	movzx	eax, word ptr [ebx + 30h]	;TSpectator.port
+	mov		edx, esp
+	push	eax
+	push	20h					; sizeof TMMP_SpectatorDisconnect
+	mov		eax, mainform
+	lea		ecx, [ebx + 1Fh]	;TSpectator.address
+	call	BNET_NFK_ReceiveData
+	; free allocated buffer
+	add		esp, 48h
+	; decrease i and Count
+	dec		dword ptr i
+	dec		dword ptr [esp]
+nextSpectator:
+	mov		edx, i
+	inc		edx
+	mov		i, edx
+	cmp		edx, [esp]
+	jnz		spectatorsLoop
+	pop		ecx					; remove Count from stack
+noSpectators:	
+	jmp		secondTickTimeoutPlayers
+new_secondTickServer	endp
+patch143_end:
 
 IFDEF _MEMDEBUG
 
@@ -3395,6 +3516,10 @@ ENDIF
 				dd		patch141_end - patch141_begin
 				dd		patch142_begin				; update Spectator last ping time
 				dd		patch142_end - patch142_begin
+				dd		patch143_begin				; ping timeout Spectators
+				dd		patch143_end - patch143_begin
+				dd		patch144_begin				; ping timeout Spectators
+				dd		patch144_end - patch144_begin
 patchSize_end:
 
 end start

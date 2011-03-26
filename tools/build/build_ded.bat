@@ -30,6 +30,7 @@ goto TheEnd
 
 :patch
 %patcher% nfk075d.exe wd.exe
+move nfk075d.upd.exe nfk076d.upd.exe
 
 :TheEnd
 
