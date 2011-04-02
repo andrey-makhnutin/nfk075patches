@@ -79,13 +79,16 @@ exeAddr 403B14h
 l403B14h:   nop
 
 exeAddr 403C4Ch
-LStrClr:    nop
+LStrClr:    nop			;params:
+							;eax - source: PLStr
 
 exeAddr	403C70h
 LStrArrayClr:	nop
 
 exeAddr 403CA0h
-LStrAsg:    nop
+LStrAsg:    nop			;params:
+							;eax - destination: PLStr
+							;edx - source: LStr
 
 exeAddr 403D15h
 l403D15:    nop
@@ -134,7 +137,9 @@ exeAddr 407568h
 CopyMemory:			nop
 
 exeAddr	408A88h
-IntToStr:	nop
+IntToStr:	nop			;params:
+							;eax - source: integer
+							;edx - destination: PLStr
 
 exeAddr	408B2Ch
 StrToInt:	nop
@@ -144,6 +149,9 @@ l410A04:    nop
 
 exeAddr	410B14h
 TList_Get:	nop
+
+exeAddr	424894h
+lstrpart_space	db	' ', 0
 
 exeAddr	451F80h
 TCustomWinSocket_SendText:	nop
@@ -1407,6 +1415,14 @@ patch69_end:
 exeAddr	5176A7h
 SPAWNCLIENT_portsEqual3:	nop
 
+exeAddr	51A773h
+patch147_begin:
+	call	SaveCFG_ext
+patch147_end:
+
+exeAddr	51D46Ch
+ALIAS_SaveAlias:	nop
+
 exeAddr	51E8A0h
 patch112_begin:
 	call	newApplyCommand_on_reconnect
@@ -1424,6 +1440,27 @@ exeAddr	51ED33h
 patch118_begin:
 	call	newPrintNFKEngineVersion
 patch118_end:
+
+exeAddr	53A359h
+patch145_begin:
+	jmp		applyCommand_ext
+patch145_end:
+applyCommand_after_ext:	nop
+
+exeAddr	53A41Ch
+applyCommand_exit:	nop
+
+exeAddr	53CC9Ch
+lstrpart_doublequote	db '"', 0
+
+exeAddr	53D4ACh
+lstrpart_invalid_value_dq	db 'invalid value "', 0
+
+exeAddr	53D6C4h
+lstrpart_dq_is_dq		db '" is "', 0
+
+exeAddr	53E1B8h
+lstrpart_dq_is_set_to_dq	db '" is set to "', 0
 
 exeAddr	543F30h
 patch120_begin:
@@ -1773,6 +1810,8 @@ SpectatorList	dd	0
 exeAddr 75D380h
 checksum    dd  0
 checksumDelay   db  0 
+OPT_CL_ALLOWDOWNLOAD	db	0
+OPT_SV_ALLOWDOWNLOAD	db	0
 align 4
 sleepDelay	dd	0
 
@@ -2329,8 +2368,12 @@ new_entryPoint:
 	push	1
 	push	eax
 	call	esi
-	;--- old entry point code
 @@:	
+	;--- init new console variables
+	; cl_allowdownload and sv_allowdownload are 1 by default
+	mov		OPT_CL_ALLOWDOWNLOAD, 1
+	mov		OPT_SV_ALLOWDOWNLOAD, 1
+	;--- old entry point code
 	push    ebp
     mov     ebp, esp
     add     esp, 0FFFFFFF4h
@@ -2617,6 +2660,209 @@ noSpectators:
 	jmp		secondTickTimeoutPlayers
 new_secondTickServer	endp
 patch143_end:
+
+patch146_begin:
+align 16
+; process input of boolean-type (0 or 1) parameter
+; eax - LStr: name of parameter
+; edx - PChar: pointer to the parameter value
+; ecx - LStr: input value
+; stack parameter 1 - Char: default value
+applyCommand_process_boolean	proc	
+;----------- local variables -------
+	defaultValue	EQU		<[ebp + 8]>		; Char
+	_name			EQU		<[ebp - 4]>		; LStr
+	paramValue		EQU		<[ebp - 8]>		; PChar
+	temp1			EQU		<[ebp - 0Ch]>	; LStr
+;-----------------------------------
+	push	ebp
+	mov		ebp, esp
+	; init stack variables
+	push	eax
+	push	edx
+	push	0
+	; check the presense of actual input
+	test	ecx, ecx
+	jnz		handle_input
+	
+	; there were none, show current value then
+	lea		eax, temp1
+	mov		edx, offset applyCommand_boolean_show
+	call	LStrAsg
+	; put current value to "show" string
+	mov		eax, temp1
+	mov		edx, paramValue
+	mov		dl, [edx]
+	add		[eax + 6], dl
+	; put default value to "show" string
+	mov		dl, defaultValue
+	add		[eax + 22], dl
+	
+	; build a string '"<name>" is "<current value>". Default is "<default value>". Possible range 0-1.'
+	push	offset lstrpart_doublequote
+	mov		edx, _name
+	push	edx
+	lea		eax, temp1
+	push	dword ptr [eax]
+	mov		edx, 3
+	call	LStrCatN
+	; add message to the console
+	mov		eax, temp1
+	call	AddMessage
+	jmp		exit
+	
+handle_input:
+	; check input length - must be 1
+	mov		eax, [ecx - 4]
+	dec		eax
+	jnz		bad_input
+	; check input value - must be "0" or "1"
+	mov		al, [ecx]
+	sub		al, '0'
+	cmp		al, 1
+	ja		bad_input
+	; set the value
+	mov		[edx], al
+	; announce changes
+	; build a string '"<name>" is set to "<input value>"'
+	push	offset lstrpart_doublequote
+	mov		eax, _name
+	push	eax
+	push	offset lstrpart_dq_is_set_to_dq
+	push	ecx
+	push	offset lstrpart_doublequote
+	lea		eax, temp1
+	mov		edx, 5
+	call	LStrCatN
+	; add message to the console
+	mov		eax, temp1
+	call	AddMessage
+	jmp		exit
+	
+bad_input:
+	; build a string 'invalid value "<input value>"'
+	lea		eax, temp1
+	push	offset lstrpart_invalid_value_dq
+	push	ecx
+	push	offset lstrpart_doublequote
+	mov		edx, 3
+	call	LStrCatN
+	mov		eax, temp1
+	call	AddMessage
+exit:
+	lea		eax, temp1
+	call	LStrClr
+	mov		esp, ebp
+	pop		ebp
+	retn	4
+;----------- datas -----------------
+dd	0FFFFFFFFh
+dd	45
+; current and default values here are to be fixed in runtime
+; current value offset = 6, default value offset = 22
+applyCommand_boolean_show		db	'" is "0". Default is "0". Possible range 0-1.', 0
+
+applyCommand_process_boolean	endp
+
+align 16
+
+applyCommand_ext	proc
+;----------- local variables -------
+	s			EQU		<[ebp - 4]>
+	par0		EQU		<[ebp - 4Ch]>
+	par1		EQU		<[ebp - 50h]>
+;-----------------------------------
+	; check cl_allowdownload
+	mov		eax, par0
+	mov		edx, offset lstr_cl_allowdownload
+	call	LStrCmp
+	jnz		check_sv_allowdownload
+	push	1
+	mov		eax, offset lstr_cl_allowdownload
+	mov		edx, offset OPT_CL_ALLOWDOWNLOAD
+	mov		ecx, par1
+	call	applyCommand_process_boolean
+	jmp		applyCommand_exit
+	
+check_sv_allowdownload:
+	; check sv_allowdownload
+	mov		eax, par0
+	mov		edx, offset lstr_sv_allowdownload
+	call	LStrCmp
+	jnz		next
+	push	1
+	mov		eax, offset lstr_sv_allowdownload
+	mov		edx, offset OPT_SV_ALLOWDOWNLOAD
+	mov		ecx, par1
+	call	applyCommand_process_boolean
+	jmp		applyCommand_exit
+next:
+	call	ismultip
+	jmp		applyCommand_after_ext
+;----------- datas -----------------
+align 4
+dd	0FFFFFFFFh
+dd  16
+lstr_cl_allowdownload	db 'cl_allowdownload', 0
+
+align 4
+dd	0FFFFFFFFh
+dd  16
+lstr_sv_allowdownload	db 'sv_allowdownload', 0
+
+applyCommand_ext	endp
+patch146_end:
+
+patch148_begin:
+align 16
+; save a numeric parameter in cfg
+; eax - integer: number
+; edx - LStr: name of parameter
+; ecx - TStringList: cfg String List
+SaveCFG_save_number	proc
+	; reserve space for temporary LStr
+	push	0
+	; save ecx and edx
+	push	ecx
+	push	edx
+	lea		edx, [esp + 8]
+	call	IntToStr
+	push	offset lstrpart_space
+	lea		eax, [esp + 0Ch]
+	push	dword ptr [eax]
+	mov		edx, 3
+	call	LStrCatN
+	pop		eax
+	mov		ecx, [eax]
+	mov		edx, [esp]
+	call	dword ptr [ecx + 34h]	;TStringList.Add
+	mov		eax, esp
+	call	LStrClr
+	pop		ecx
+	retn	
+SaveCFG_save_number	endp
+
+align 16
+SaveCFG_ext	proc
+;----------- local variables -------
+	ts			EQU		<[ebp - 8]>
+;-----------------------------------
+	call	ALIAS_SaveAlias
+	movzx	eax, byte ptr OPT_CL_ALLOWDOWNLOAD
+	mov		edx, offset lstr_cl_allowdownload
+	mov		ecx, ts
+	call	SaveCFG_save_number
+	movzx	eax, byte ptr OPT_SV_ALLOWDOWNLOAD
+	mov		edx, offset lstr_sv_allowdownload
+	mov		ecx, ts
+	call	SaveCFG_save_number
+	retn	
+;----------- datas -----------------
+dd	0FFFFFFFFh
+dd	18
+;lstr_cl_allowdownload	db	'cl_allowdownload 0', 0
+SaveCFG_ext	endp
+patch148_end:
 
 IFDEF _MEMDEBUG
 
@@ -3520,6 +3766,15 @@ ENDIF
 				dd		patch143_end - patch143_begin
 				dd		patch144_begin				; ping timeout Spectators
 				dd		patch144_end - patch144_begin
+				dd		patch145_begin				; applyCommand extension
+				dd		patch145_end - patch145_begin
+				dd		patch146_begin				; applyCommand extension
+				dd		patch146_end - patch146_begin
+				dd		patch147_begin				; SaveCFG extension
+				dd		patch147_end - patch147_begin
+				dd		patch148_begin				; SaveCFG extension
+				dd		patch148_end - patch148_begin
+				
 patchSize_end:
 
 end start
