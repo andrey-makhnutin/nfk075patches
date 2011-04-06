@@ -42,6 +42,8 @@ EnterCriticalSection:       nop
 exeAddr 4013B0h
 LeaveCriticalSection:       nop
 
+exeAddr	4026E0h
+GetMem:		nop
 exeAddr 4026EAh
 l4026EA:    nop  
 exeAddr 4026EEh
@@ -56,6 +58,11 @@ exeAddr 402716h
 l402716:    nop
 exeAddr 402748h
 l402748:    nop
+exeAddr	402864h
+Move:		nop			;params
+							;eax - source
+							;edx - destination
+							;ecx - count
 
 exeAddr	402AC0h
 TRUNC:		nop
@@ -119,6 +126,17 @@ LStrCmp:	nop
 
 exeAddr	404080h
 LStrAddRef:	nop
+
+exeAddr	405D30h
+BlockRead:	nop
+
+exeAddr	40602Ch
+FileSize:	nop			;params:
+							;eax - FileRecord
+exeAddr	4061F4h
+Seek:		nop			;params
+							;eax - FileRecord
+							;edx - distance (from the beginning)
 
 exeAddr 406D08h
 patch128_begin:
@@ -483,6 +501,9 @@ newTPowerGraph_RotateEffectFix	proc
 newTPowerGraph_RotateEffectFix	endp
 patch89_end:
 
+exeAddr	46E860h
+TPowerFont_AlignedOut:	nop
+
 exeAddr 47DF2Eh
 patch26_begin:
 call    patch25_begin
@@ -784,6 +805,9 @@ NFKPlanet_SortServerList_nullStr	dd	0
 exeAddr	4BAA84h
 BNET_DirectConnect:		nop
 
+exeAddr	4BB720h
+DrawWindow:	nop
+
 exeAddr 4C05D6h
 patch3_begin:
 IFDEF _DEDIC
@@ -846,6 +870,11 @@ patch72_begin:
 	call 	DrawMenu_newAskForInvite
 patch72_end:
 
+exeAddr	4CA52Dh
+patch152_begin:
+	call	DrawMenu_ex
+patch152_end:
+
 exeAddr	4CA638h
 patch123_begin:
 	dd	0FFFFFFFFh
@@ -855,6 +884,9 @@ patch123_begin:
 	dd	40h
 	db	'http://pff.clan.su                   e-mail: the.boobl@gmail.com', 0
 patch123_end:
+
+exeAddr	4CA878h
+sstrpart_empty	db	0
 
 exeAddr	4CAD84h
 patch124_begin:
@@ -1177,6 +1209,17 @@ patch125_end:
 exeAddr	4F38E4h
 AddMessage:		nop
 
+exeAddr	4F7835h
+patch149_begin:
+	jmp		LOADMAP_ex
+patch149_end:
+
+exeAddr	4F7840h
+LOADMAP_not_a_map:	nop
+
+exeAddr	4F78D7h
+LOADMAP_after_ex:	nop
+
 exeAddr 4F8908h
 patch32_begin:
 	retn
@@ -1419,6 +1462,9 @@ exeAddr	51A773h
 patch147_begin:
 	call	SaveCFG_ext
 patch147_end:
+
+exeAddr	51C320h
+GammaAnimation:	nop
 
 exeAddr	51D46Ch
 ALIAS_SaveAlias:	nop
@@ -1797,6 +1843,9 @@ MP_STEP	db	0
 exeAddr 554CD4h
 mainform    dd  0
 
+exeAddr	554CE4h
+mapcancel	dd	0
+
 exeAddr	555B00h
 starttime	dd	0
 
@@ -1812,8 +1861,19 @@ checksum    dd  0
 checksumDelay   db  0 
 OPT_CL_ALLOWDOWNLOAD	db	0
 OPT_SV_ALLOWDOWNLOAD	db	0
+downloadingMap	db	0
 align 4
 sleepDelay	dd	0
+mapBuffer	dd	0
+mapRequestTimeout	dd	0
+mapRequestTimeoutCount	db	0
+mapRequestState	db	0	; 1 - ask
+						; 2 - download
+mapRequestNeededPart	db	0
+mapRequestErrorCount	db	0
+align 4
+mapRequestSize	dd	0
+mapRequestDownloaded	dd	0
 
 exeAddr	75E2F0h
 imp_GetTickCount	dd	0
@@ -2858,11 +2918,134 @@ SaveCFG_ext	proc
 	call	SaveCFG_save_number
 	retn	
 ;----------- datas -----------------
+align 4
 dd	0FFFFFFFFh
 dd	18
 ;lstr_cl_allowdownload	db	'cl_allowdownload 0', 0
 SaveCFG_ext	endp
 patch148_end:
+
+align 16
+patch150_begin:
+LOADMAP_ex	proc		; can use ebx
+;----------- local variables -------
+	f		EQU		<[ebp - 17Ch]>
+	Buffer	EQU		<[ebp - 216h]>
+;-----------------------------------
+	call	LStrCmp
+	jnz		LOADMAP_not_a_map
+	; store the entire map somewhere. First 154 bytes are already loaded into [ebp-216]
+	; if Map Buffer is not empty - free it
+	mov		eax, mapBuffer
+	test	eax, eax
+	jz		@F
+	call	FreeMem
+	xor		eax, eax
+	mov		mapBuffer, eax
+@@:
+	lea		eax, f
+	call	FileSize
+	cmp		eax, 1000000
+	jge		exit
+	push	eax
+	call	GetMem
+	test	eax, eax
+	jz		exit
+	; move first 154 bytes stored in a buffer
+	mov		mapBuffer, eax
+	mov		edx, eax
+	lea		eax, Buffer
+	mov		ecx, 154
+	call	Move
+	; read the rest from the file
+	mov		eax, mapBuffer
+	lea		edx, [eax + 154]
+	lea		eax, f
+	pop		ecx
+	sub		ecx, 154
+	push	0
+	call	BlockRead
+	; move file pointer back in the place
+	lea		eax, f
+	mov		edx, 154
+	call	Seek
+exit:
+	jmp		LOADMAP_after_ex
+LOADMAP_ex	endp
+patch150_end:
+
+align 16
+patch151_begin:
+DrawMenu_ex	proc
+	; draw Map Downloading window if needed
+	cmp		mapRequestState, 0
+	jz		notDownloading
+	push	190
+	push	300
+	push	100
+	push	1
+	mov		cx, 170
+	mov		edx, offset sstrpart_empty
+	mov		eax, offset sstr_downloading_a_map
+	call	DrawWindow
+	mov		mapcancel, 4
+	cmp		mapRequestState, 1
+	jnz		notRequesting
+	push	0
+	push	3
+	push	3
+	push	0FFFFFFh
+	mov		edx, offset lstr_sending_a_request
+	mov		eax, mainform
+	mov		eax, [eax + 2FCh]				; TMainForm.font2b
+	xor		ecx, ecx
+	call	TPowerFont_AlignedOut
+	jmp		notDownloading
+notRequesting:
+	cmp		mapRequestState, 2
+	jnz		notDownloading
+	push	0
+	push	3
+	push	3
+	push	0FFFFFFh
+	push	offset lstrpart_downloading_a_map_colon
+	lea		edx, [ebp - 578h]
+	mov		eax, mapRequestDownloaded
+	call	IntToStr
+	push	[ebp - 578h]
+	push	offset lstrpart_out_of
+	lea		edx, [ebp - 57Ch]
+	mov		eax, mapRequestSize
+	call	IntToStr
+	push	[ebp - 57Ch]
+	lea		eax, [ebp - 574h]
+	mov		edx, 4
+	call	LStrCatN
+	mov		edx, [ebp - 574h]
+	mov		eax, mainform
+	mov		eax, [eax + 2FCh]				; TMainForm.font2b
+	xor		ecx, ecx
+	call	TPowerFont_AlignedOut
+notDownloading:
+	call	GammaAnimation
+	retn
+;----------- datas -----------------
+align 4
+sstr_downloading_a_map	db	20, 'Downloading a map...', 0
+align 4
+dd	0FFFFFFFFh
+dd	20
+lstr_sending_a_request	db	'Sending a request...', 0
+align 4
+dd	0FFFFFFFFh
+dd	19
+lstrpart_downloading_a_map_colon	db	'Downloading a map: ', 0
+align 4
+dd	0FFFFFFFFh
+dd	8
+lstrpart_out_of		db	' out of ', 0
+DrawMenu_ex	endp
+patch151_end:
 
 IFDEF _MEMDEBUG
 
@@ -3774,7 +3957,14 @@ ENDIF
 				dd		patch147_end - patch147_begin
 				dd		patch148_begin				; SaveCFG extension
 				dd		patch148_end - patch148_begin
-				
+				dd		patch149_begin				; LOADMAP extension
+				dd		patch149_end - patch149_begin
+				dd		patch150_begin				; LOADMAP extension
+				dd		patch150_end - patch150_begin
+				dd		patch151_begin				; DrawMenu extension
+				dd		patch151_end - patch151_begin
+				dd		patch152_begin				; DrawMenu extension
+				dd		patch152_end - patch152_begin
 patchSize_end:
 
 end start
