@@ -536,6 +536,9 @@ ismultip:   nop
 exeAddr	47FAACh
 NFKPlanet_GetTok2:	nop
 
+exeAddr	47FDFCh
+BD_Avail:	nop
+
 exeAddr	484BC4h
 BNETSendData2IP_:	nop
 
@@ -544,6 +547,9 @@ BNETSendData2HOST:  nop
 
 exeAddr 486E74h
 SpawnBubble:        nop
+
+exeAddr	48C4E8h
+PAINSOUNDZZ:	nop
 
 exeAddr	48C961h
 patch114_begin:
@@ -1309,6 +1315,11 @@ patch41_begin:
 	mov		edx, offset NFK_VERSION
 patch41_end:	
 
+exeAddr	50A15Ah
+patch154_begin:
+	call	BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex
+patch154_end:
+
 exeAddr	50A3E4h
 patch70_begin:
 	mov		eax, offset BNET_OLDGAMEIP
@@ -1356,6 +1367,14 @@ nop
 nop
 patch15_end:
 l50CB06:    nop
+
+exeAddr	50EB58h
+patch155_begin:
+	call	BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex
+patch155_end:
+
+exeAddr	50EB64h
+BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex:	nop
 
 exeAddr 513B8Bh
 patch142_begin:
@@ -1427,6 +1446,9 @@ BNET_NFK_ReceiveData_default:	nop
 
 exeAddr	516B48h
 BNET_NFK_ReceiveData_nullStr	dd	0
+
+exeAddr	516D50h
+sstrpart_opening_parentheses	db	1,'(',0
 
 exeAddr	516DECh
 str_droppedByTimeout	db	0	; shortstring ' ^7^ndropped by timeout.'
@@ -1807,6 +1829,9 @@ BNET_GAMEIP		dd	0	;ShortString
 exeAddr	54BDE4h
 BNET_OLDGAMEIP	dd	0
 
+exeAddr	54BEF0h
+BNET_CONNECTING	db	0
+
 exeAddr	54BEF8h
 ENABLE_PROTECT	db	0
 
@@ -1855,6 +1880,12 @@ gametic     dd  0
 
 exeAddr	75CC98h
 SpectatorList	dd	0
+
+exeAddr	75CCF8h
+DLL_DMGReceived dd 	0		;params
+								;ax - target DXID
+								;dx - attacker DXID
+								;ecx - damage
 
 exeAddr 75D380h
 checksum    dd  0
@@ -3047,6 +3078,46 @@ lstrpart_out_of		db	' out of ', 0
 DrawMenu_ex	endp
 patch151_end:
 
+align 16
+patch153_begin:
+BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex	proc
+	cmp		OPT_CL_ALLOWDOWNLOAD, 1
+	jnz		exit
+	; set request state
+	mov		mapRequestState, 1
+	mov		BNET_CONNECTING, 0
+	; send a packet
+	;,----------1---------32
+	; MMP_GETMAP|
+exit:
+	mov		edx, offset sstrpart_opening_parentheses
+	retn
+BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex	endp
+patch153_end:
+
+align 16
+patch156_begin:
+BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	proc
+;----------- local variables -------
+	data	EQU		<[ebp - 8h]>
+;-----------------------------------
+	push	eax
+	call	BD_Avail
+	test	al, al
+	jz		@F
+	mov		ecx, data
+	mov		ax, [ecx + 4]		; TMP_DamagePlayer.DXID
+	mov		dx, [ecx + 6]
+	xor		ecx, ecx
+	call	DLL_DMGReceived
+@@:
+	pop		eax
+	mov		eax, g_players[eax * 4]
+	call	PAINSOUNDZZ
+	jmp		BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex
+BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	endp
+patch156_end:
+
 IFDEF _MEMDEBUG
 
 exeAddr 785000h
@@ -3965,6 +4036,14 @@ ENDIF
 				dd		patch151_end - patch151_begin
 				dd		patch152_begin				; DrawMenu extension
 				dd		patch152_end - patch152_begin
+				;dd		patch153_begin				; BNET_NFK_ReceiveData on_MMP_GAMESTATEANSWER mapNotfound extension
+				;dd		patch153_end - patch153_begin
+				;dd		patch154_begin
+				;dd		patch154_end - patch154_begin
+				dd		patch155_begin
+				dd		patch155_end - patch155_begin
+				dd		patch156_begin
+				dd		patch156_end - patch156_begin
 patchSize_end:
 
 end start
