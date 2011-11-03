@@ -1,0 +1,973 @@
+strafeTableX : array of double = [0, 0.33, 0.8, 1.1, 1.4, 1.8, 2.2];
+strafeTableY : array of double = [0, 0, 0.4, 0.8, 1.0, 1.2, 1.4];
+
+procedure playermove(i: byte);
+var
+	MsgSize: byte;
+	IamRespawnMsg: TIamRespawn;
+	PlayerRespawnMsg: TPlayerRespawn;
+	FlightSoundMsg: TFlightSoundMsg;
+	GantlStateChangeMsg: TGantlStateChangeMsg;
+	var_18: integer;
+	newInertiaX: float;
+	nextwpnSkipempty: byte;
+begin
+	if (players[i] = nil) then
+		exit;
+		
+	if (MATCH_DEMOPLAY = 0) and (players[i].health <= 0) and (players[i].dead = 0) then
+	begin
+		players[i].dead := 1;
+		players[i].frame := 0;
+		players[i].respawn := OPT_FORCERESPAWN * 50;
+		
+		if (players[i].idd = 2) and (off_54D85C <> 0) then
+			players[i].respawn := $FFFF;
+				
+		players[i].gantl_state := 0;
+		players[i].gantl_s := 0;
+		
+		if (MATCH_GAMETYPE = GAMETYPE_TRIXARENA) and (OPT_TRIXMASTA <> 0) and (MATCH_STARTSIN = 0) then
+			applyHcommand('restart');
+	end;
+loc_4A27BF:
+
+	if (players[i].justrespawned > 50) then
+		players[i].justrespawned := 50;
+	
+	if (players[i].justrespawned > 0) then
+		dec(players[i].justrespawned);
+		
+	if (players[i].justrespawned2 > 0) then
+		dec(players[i].justrespawned2);
+		
+	if (players[i].field_35C > STIME) then
+	begin
+		if (players[i].field_35B < 30) then
+			inc(players[i].field_35B);
+	end
+	else
+	begin
+loc_4A28D8:
+		if (players[i].field_35B > 0) then
+			dec(players[i].field_35B);
+	end;
+loc_4A291B:	
+	
+	if (players[i].field_360 < STIME) and (players[i].field_35B > 0) then
+	begin
+		players[i].field_360 := (STIME + 70) - players[i].field_35B * 1.5;
+		
+		inc(players[i].field_35A);
+		if (players[i].field_35A > 5) then
+			players[i].field_35A := 0;
+	end;
+loc_4A2A35:	
+	players[i].location := GetPlayerLocation(i);
+	
+	if (players[i].netobject = 1) then
+	begin
+		playerphysic(i);
+		
+		if (players[i].shaftsttime > 0) then
+			dec(players[i].shaftsttime);
+		if (players[i].shaftsttime > 0) then
+			dec(players[i].shaftsttime);
+		if (players[i].inlava > 0) then 
+			dec(players[i].inlava);
+		if (players[i].paintime > 0) then 
+			dec(players[i].paintime);
+		if (players[i].hitsnd > 0) then 
+			dec(players[i].hitsnd);
+		if (players[i].rewardtime > 0) then 
+			dec(players[i].rewardtime);
+		if (players[i].excellent > 0) then 
+			dec(players[i].excellent);
+		if (players[i].gantl_s > 0) then 
+			dec(players[i].gantl_s);
+		if (players[i].netnosignal < $FFFF) then 
+			inc(players[i].netnosignal);
+		if (players[i].netnosignal > 150) then 
+			players[i].netupdated := 0;
+		if (players[i].gantl_refire > 0) then 
+			dec(players[i].gantl_refire);
+		if (players[i].item_quad_time > 0) then 
+			dec(players[i].item_quad_time);
+		if (players[i].item_regen_time > 0) then 
+			dec(players[i].item_regen_time);
+		if (players[i].item_battle_time > 0) then 
+			dec(players[i].item_battle_time);
+		if (players[i].item_flight_time > 0) then 
+			dec(players[i].item_flight_time);
+		if (players[i].item_haste > 0) then
+		begin
+			if players[i].item_haste_time = 0 then
+			begin
+				SpawnSmoke(round(players[i].x),round(players[i].y+20));
+				players[i].item_haste_time := 5;
+			end
+			else
+				dec(players[i].item_haste_time);
+			end;
+		end;
+loc_4A2F24:
+		if (players[i].weapon = 0) then
+		begin
+			if (players[i].gantl_state > 0) and (players[i].gantl_refire = 0) then
+				FireGauntlet(players[i]);
+				
+			if (players[i].gantl_state > 0) and (players[i].gantl_s = 0) then
+			begin
+				if (players[i].gauntl_s_order = 0) then
+				begin
+					playsound(SND_gauntl_r1, players[i].x, players[i].y);
+					players[i].gauntl_s_order := 1;
+				end
+				else
+				begin
+loc_4A305C:			
+					playsound(SND_gauntl_r2, players[i].x, players[i].y);
+					players[i].gauntl_s_order := 0;
+				end;
+loc_4A30C3:				
+				players[i].gantl_s := 12;
+			end;
+loc_4A30DD:	
+			if (players[i].gantl_state > 0) then
+				inc(players[i].gantl_state);
+			
+			if (players[i].gantl_state > 3) then
+				players[i].gantl_state := 1;
+		end;
+		exit;
+	end;
+loc_4A3159:	
+
+	if (MATCH_GAMEEND <> 0) then
+	begin
+		playerphysic(i);
+		
+		if (players[i].InertiaX <> 0) then
+			exit;
+		if (players[i].InertiaX <> 0) then
+			exit;
+		
+		if (players[i].dir = 0) then 
+			players[i].dir := 2;
+		if (players[i].dir = 1) then 
+			players[i].dir := 3;
+		
+		exit;
+	end;
+loc_4A3239:
+	playerphysic(i);
+	
+	if (players[i].weapchg > 0) then 
+		dec(players[i].weapchg);
+	if (players[i].rewardtime > 0) then 
+		dec(players[i].rewardtime);
+	if (players[i].excellent > 0) then 
+		dec(players[i].excellent);
+	if (players[i].refire > 0) then 
+		dec(players[i].refire);
+	if (players[i].doublejump > 0) then 
+		dec(players[i].doublejump);
+	if (players[i].shaftsttime > 0) then 
+		dec(players[i].shaftsttime);
+	if (players[i].ammo_snd > 0) then 
+		dec(players[i].ammo_snd);
+	if (players[i].inlava > 0) then 
+		dec(players[i].inlava);
+	if (players[i].paintime > 0) then 
+		dec(players[i].paintime);
+	if (players[i].hitsnd > 0) then 
+		dec(players[i].hitsnd);
+	if (players[i].item_quad_time > 0) then 
+		dec(players[i].item_quad_time);
+	if (players[i].item_regen_time > 0) then 
+		dec(players[i].item_regen_time);
+	if (players[i].item_battle_time > 0) then 
+		dec(players[i].item_battle_time);
+	if (players[i].item_flight_time > 0) then 
+		dec(players[i].item_flight_time);
+	if (players[i].gantl_s > 0) then 
+		dec(players[i].gantl_s);
+	if (players[i].gantl_refire > 0) then 
+		dec(players[i].gantl_refire);
+		
+	if (MATCH_DEMOPLAY = 0) and (players[i].dead > 0) and (players[i].respawn > 0) then
+		dec(players[i].respawn);
+
+	if (players[i].dead > 0) and (players[i].respawn = 0) then
+	begin
+		if (ismultip() = 2) and ((players[i].ammo_mg < $FF) or (GetTickCount() > players[i].clientrespawntimeout)) then
+		begin
+			players[i].ammo_mg := $FF;
+			MsgSize := sizeof(TIamRespawn);
+			IamRespawnMsg.Data := MSG_IAMRESPAWN;
+			IamRespawnMsg.dxid := players[i].dxid;
+			BNETSendData2Host(@IamRespawnMsg, MsgSize, 1);
+			players[i].clientrespawntimeout := GetTickCount() + 3000;
+		end
+		else
+		begin
+loc_4A37BD:	
+			if (ismultip() == 1) then
+			begin
+				sub_4A3852(players[i]);
+				sub_4A1B2C(players[i], 0);
+				MsgSize := sizeof(TPlayerRespawn);
+				PlayerRespawnMsg.Data := MMP_PLAYERRESPAWN;
+				PlayerRespawnMsg.dxid := players[i].dxid;
+				PlayerRespawnMsg.x := byte_555A8C;
+				PlayerRespawnMsg.y := byte_555A8D;
+				BNETSendData2Host(@PlayerRespawnMsg, MsgSize, 1);
+			end
+			else
+			begin
+loc_4A3852:
+				if (ismultip() == 2) then
+				begin
+					sub_4A2124(players[i]);
+					sub_4A1B2C(players[i], 0);
+				end;
+			end;
+		end;		
+	end;
+loc_4A3893:
+	if (players[i].dead > 0) then
+		if ((ISKEY(KEY_FIRE) <> 0) and (players[i].control = 1)) or
+			((ISKEY(KET_P2FIRE) <> 0) and (players[i].control = 2)) or
+			((players[i].idd = 2) and (players[i] and $20 = $20)) then
+		begin
+			if (players[i].respawn > 2) and ((OPT_FORCERESPAWN * 50 - 50) > players[i].respawn) then
+			begin
+				players[i].respawn := 2;
+				players[i].refire := 25;
+			end;
+		end;
+		exit;
+	end;
+loc_4A3A17:
+	if (players[i].idd <> 2) and ((INCONSOLE <> 0) or (INGAMEMENU <> 0) or (MESSAGEMODE <> 0)) then
+	begin
+		ClipTriggers(players[i]);
+		if (players[i].field_1A > 0) then
+			sub_4A24CC(i);
+		if (players[i].dir < 2) then
+			players[i].dir := players[i].dir + 2;
+		setcrosshairpos(players[i], 1, trunc(players[i].x), trunc(players[i].y), players[i].field_4C, players[i].clippixel);
+	end;
+loc_4A3BAD:
+	if (isparamstr('+showinput') <> 0) then
+	begin
+		for var_18 := 1 to 255 do
+			AddMessage('KEY-' + Chr(var_18) + '-' + IntToStr(var_18));
+	end;
+loc_4A3C35:
+	if (MATCH_DEMOPLAY <> 0) then
+		exit;
+		
+	if (isTooLaggy() <> 0) then
+		exit;
+		
+	if (players[i].control = 1) then
+	begin
+		if (OPT_P1MOUSELOOK <> 0) then
+		begin
+			if (OPT_MROTATED = 0) then
+			begin
+				var_18 := mainform.dxinput.Mouse.get_y();
+				if (OPT_MINVERT <> 0) then
+					var_18 := -1 * var_18;
+			end
+			else
+			begin
+loc_4A3CB0:
+				var_18 := mainform.dxinput.Mouse.get_x();
+				if (OPT_MINVERT <> 0) then
+					var_18 := -1 * var_18;
+			end;	
+loc_4A3CD9:			
+		end;
+loc_4A3F77:
+	end;
+loc_4A4372:
+	if (players[i].control = 2) and (players[i].netobject = 0) and ((ISKEY(KEY_P2LOOKUP) = false) or (ISKEY(KEY_P2LOOKDOWN) = false)) then
+	begin
+		if (OPT_P2KEYBACCELERATE > 0) then
+		begin
+			if (ISKEY(KEY_P2LOOKUP) = true) then
+			begin
+				var_2C := unk_757BD0 / (10 - OPT_P2KEYBACCELERATE) + OPT_KEYBSENSITIVITY;
+				players[i].clippixel := players[i].clippixel - var_2C;
+				
+				if (unk_757BD1 = 1) then
+					inc(unk_757BD0)
+				else
+					unk_757BD0 := 0;
+				unk_757BD1 := 1;
+			end
+			else
+			begin
+loc_4A44AF:
+				if (ISKEY(KEY_P2LOOKDOWN) = true)
+				begin
+					var_2C := unk_757BD0 / (10 - OPT_P2KEYBACCELERATE) + OPT_KEYBSENSITIVITY;
+					players[i].clippixel := players[i].clippixel + var_2C;
+					
+					if (unk_757BD1 = 0) then
+						inc(unk_757BD0);
+					else
+						unk_757BD0 := 0;
+					unk_757BD1 := 0;
+				end
+loc_4A4561:
+				else
+					unk_757BD0 := 0;
+			end;
+loc_4A4568:
+			if (10 * (10 - OPT_P2KEYBACCELERATE) < unk_757BD0) then
+			begin
+				unk_757BD0 := 10 * (10 - OPT_P2KEYBACCELERATE);
+			end;
+		end
+		else
+		begin
+loc_4A45CC:	
+			if (ISKEY(KEY_P2LOOKUP) = true) then
+			begin
+				player[i].clippixel := player[i].clippixel - OPT_KEYBSENSITIVITY;
+			end
+			else
+			begin
+loc_4A4628:
+				if (ISKEY(KEY_P2LOOKDOWN) = true) then
+				begin
+					player[i].clippixel := player[i].clippixel + OPT_KEYBSENSITIVITY;
+				end;
+			end;
+		end;
+loc_4A4682:
+		if ((unk_54C2F8 + unk_54C2FC) < players[i].clippixel) then
+		begin
+			players[i].clippixel := unk_54C2F8 + unk_54C2FC;
+		end;
+		if (-1 * (unk_54C2F8 + unk_54C2FC) > players[i].clippixel) then
+			players[i].clippixel := -1 * (unk_54C2F8 + unk_54C2FC);
+	end;
+loc_4A4764:
+
+	if (players[i].control = 2) and (ISKEY(KEY_P2CENTER) = true) then
+	begin
+		unk_757BD0 := 0;
+		players[i].clippixel := 0;
+		players[i].field_4C := 0;
+	end;
+	
+	if (isonground(players[i])) then
+	begin
+		players[i].InertiaY := 0;
+	end;
+	
+	if isGameTeamplay() and (unk_54C178 > 0) then
+		exit;
+		
+	if ((ISKEY(KEY_MOVEUP) = true) and (players[i].control = 1)) or
+		((ISKEY(KEY_P2MOVEUP) = true) and (players[i].control = 2)) or
+		((players[i].idd = 2) and ((players[i].keys and 8) = 8)) then
+	begin
+loc_4A48D3:
+		if (IsWaterContent(players[i]) or IsWaterContentJUMP(players[i])) then
+		begin
+			players[i].InertiaY := -1.5;
+			players[i].field_359 := 0;
+		end
+		else
+		begin
+loc_4A495B:
+			if (isonground(players[i]) = false) and (brickonhead(players[i]) = false) and (players[i].item_flight > 0) then
+			begin		// we have flight
+				players[i].InertiaY := -2.0;
+				players[i].crouch := 0;
+				players[i].field_359 := 0;
+				if (players[i].item_flight_time = 0) then
+				begin
+					playsound(16, players[i].x, players[i].y);
+					players[i].item_flight_time := 35;
+				end;
+				
+				if (ismultip() > 0) then
+				begin
+					MsgSize := 4;
+					FlightSoundMsg.Data := 47;
+					FlightSoundMsg.dxid := players[i].dxid;
+					FlightSoundMsg.flag := 1;
+					if (ismultip() = 1) then
+						BNETSendData2All(@FlightSoundMsg, MsgSize, 0)
+					else
+						BNETSendData2HOST(@FlightSoundMsg, MsgSize, 0);
+				end;
+loc_4A4B1C:		
+				if (MATCH_DRECORD <> 0) then
+				begin
+					DData.data := 26;
+					DData.gametick := gametic;
+					DData.gametime := gametime;
+					
+					DFlightSound.x = round(players[i].x);
+					DFlightSound.y = round(players[i].y);
+					
+					DemoStream.Write(@DData, 4);
+					DemoStream.Write(@DFlightSound, 4);
+				end;
+			end
+			else
+			begin
+loc_4A4C0C:		
+				if ((isonground(players[i]) = true) or (isDoubleJumpPossible(players[i]) = false)) and
+					(brickonhead(players[i]) = false) then
+				begin
+					if (players[i].field_358 < 5) and (players[i].field_359 < 6) then
+						inc(players[i].field_359);
+				end;
+				players[i].field_358 := 255;
+				
+				if (players[i].doublejump > 4) then
+				begin
+					players[i].doublejump := 14;
+					players[i].InertiaY := -3;
+					players[i].crouch := 0;
+				end
+				else
+				begin
+loc_4A4D70:				
+					if (players[i].doublejump = 0) then
+					begin
+						players[i].doublejump := 14;
+						playsound(players[i].SND_Jump, players[i].x, players[i].y);
+						
+						if (ismultip() > 0) then
+						begin
+							MsgSize := 4;
+							FlightSoundMsg.Data := 47;
+							FlightSoundMsg.dxid := players[i].dxid;
+							FlightSoundMsg.flag := 0;
+							
+							if (ismultip() = 1) then
+							begin
+								BNETSendData2All(@FlightSoundMsg, MsgSize, 0);
+							end
+							else
+							begin
+								BNETSendData2HOST(@FlightSoundMsg, MsgSize, 0);
+							end;
+						end;
+loc_4A4E76:
+						if (MATCH_DRECORD <> 0) then
+						begin
+							DData.data := 18;
+							DData.gametick := gametic;
+							DData.gametime := gametime;
+							
+							DPlayerJump.dxid := players[i].dxid;
+							
+							DemoStream.Write(@DData, 4);
+							DemoStream.Write(@DPlayerJump, 2);
+						end;
+					end;
+loc_4A4F10:					
+					if (CON_SIMPLEPHYSICS = 1) then
+					begin
+						players[i].InertiaY := -2.9;
+					end
+					else
+					begin
+						players[i].InertiaY := -2.0;
+					end;
+				end;
+loc_4A4F6D:				
+				players[i].InertiaY := players[i].InertiaY + strafeTableY[players[i].field_359];
+			end;
+		end;
+	end;
+loc_4A4FD4:
+
+	if (not (ISKEY(KEY_MOVEUP) and (players[i].control = 1))) and
+		(not (ISKEY(KEY_P2MOVEUP) and (players[i].control = 2))) then
+	begin
+		if (ISKEY(KEY_MOVEDOUWN) and (players[i].control = 1)) or
+			(ISKEY(KEY_P2MOVEDOWN) and (players[i].control = 2)) then
+		begin
+loc_4A50B4:			
+			if (isonground(players[i])) then
+				players[i].crouch := true;
+		end
+		else
+		begin
+loc_4A50F2:
+			if (brickcrouchonhead(players[i]) = false) then
+				players[i].crouch := false;
+		end;
+	end;
+loc_4A512E:
+
+	if (players[i].idd = 2) then
+	begin
+		if (players[i].keys and 8 <> 8) then
+		begin
+			if (players[i].keys and $10 = $10) then
+			begin
+				if (isonground(players[i])) then
+					players[i].crouch := true;
+			end
+			else
+			begin
+loc_4A51DE:
+				if (brickcrouchonhead(players[i])) then
+					players[i].crouch := false;
+			end;
+		end;
+loc_4A521A:
+
+		if (players[i].refire = 0) and (players[i].weapon <> players[i].threadweapon) then
+		begin
+			players[i].weapon := players[i].threadweapon;
+		end;
+loc_4A529C:
+
+		if (players[i].refire = 0) and (players[i].keys and $20 = $20) then
+			sub_5076DC(players[i], players[i].x, players[i].y, 90.0);
+	end;
+loc_4A5349:
+
+	if (brickcrouchonhead(players[i]) = false) and (isonground(players[i]) = false) then
+	begin
+		players[i].keys := 0;
+	end;
+	
+	if (unk_54C6DC <> 0) and (players[i].refire = 0) and (players[i].weapon <> players[i].threadweapon) then
+	begin
+		players[i].weapon := players[i].threadweapon;
+		sub_4A245C(i);
+	end;
+loc_4A543B:
+
+	if (players[i].weapch <> 0) then
+	begin
+		if (ISKEY(KEY_FIRE) and (players[i].control = 1)) or
+			(ISKEY(KEY_P2FIRE) and (players[i].control = 2)) then
+		begin
+loc_4A54CF:
+			if (players[i].refire <> 0) then
+			begin
+				sub_5076DC(players[i], players[i].x, players[i].y, 90.0);
+			end;
+		end
+		else
+		begin
+loc_4A5557:
+			if (players[i].shaft_state > 0) then
+				sub_4A24CC(i);
+		end;
+	end;
+loc_4A557B:
+
+	if (players[i].refire <> 0) and (players[i].gantl_state > 0) then
+	begin
+		players[i].gantl_state := 0;
+		
+		if (ismultip() > 0) and (players[i].netobject = 0) then
+		begin
+			MsgSize := 4;
+			GantlStateChangeMsg.Data := 30;
+			GantlStateChangeMsg.dxid := players[i].dxid;
+			GantlStateChangeMsg.state := 0;
+			if (ismultip() = 1) then
+			begin
+				BNETSendData2All(@GantlStateChangeMsg, MsgSize, 0);
+			end
+			else
+			begin
+				BNETSendData2HOST(@GantlStateChangeMsg, MsgSize, 0);
+			end;
+		end;
+loc_4A565D:
+
+		if (MATCH_DRECORD <> 0) then
+		begin
+			DData.data := 38;
+			DData.gametick := gametic;
+			DData.gametime := gametime;
+			
+			DemoGantlStateChange.dxid := players[i].dxid;
+			DemoGantlStateChange.state := 0;
+			
+			DemoStream.Write(@DData, 4);
+			DemoStream.Write(@DemoGantlStateShange, 3);
+		end;
+	end;
+loc_4A5700:
+
+	if (ISKEY(KEY_NEXTWEAPON) and (players[i].control = 1) and (players[i].weapchg = 0)) or
+		(ISKEY(KEY_P2NEXTWEAPON) and (players[i].control = 2) and (players[i].weapchg = 0)) then
+	begin
+loc_4A57B0:
+		if (players[i].control = 1) then
+			nextwpnSkipempty := OPT_NEXTWPN_SKIPEMPTY
+		else if (players[i].control = 2) then
+			nextwpnSkipempty := OPT_P2NEXTWPN_SKIPEMPTY;
+		
+		players[i].threadweapon := players[i].threadweapon + 1;
+		
+		if (players[i].threadweapon = 1) and 
+			((players[i].have_mg = 0) or ((players[i].ammo_mg = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon = 2) and 
+			((players[i].have_sg = 0) or ((players[i].ammo_sg = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon = 3) and 
+			((players[i].have_gl = 0) or ((players[i].ammo_gl = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon = 4) and 
+			((players[i].have_rl = 0) or ((players[i].ammo_rl = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon = 5) and 
+			((players[i].have_sh = 0) or ((players[i].ammo_sh = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon = 6) and 
+			((players[i].have_rg = 0) or ((players[i].ammo_rg = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon = 7) and 
+			((players[i].have_pl = 0) or ((players[i].ammo_pl = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon = 8) and 
+			((players[i].have_bfg = 0) or ((players[i].ammo_bfg = 0) and (nextwpnSkipempty = 1))) then
+			players[i].threadweapon := players[i].threadweapon + 1;
+			
+		if (players[i].threadweapon > 8) then
+		begin
+			if (players[i].have_sg = 0) and (players[i].have_gl = 0) and (players[i].have_rl = 0) and
+				(players[i].have_sh = 0) and (players[i].have_rg = 0) and (players[i].have_pl = 0) and
+				(players[i].have_bfg = 0) then
+			begin
+				players[i].threadweapon := 0;
+			end
+			else
+			begin
+				players[i].threadweapon := 0;
+				
+				if (MATCH_GAMETYPE <> Gametype_RAIL) then
+				begin
+					if (players[i].control = 1) and (OPT_GAUNTLETNEXTWEAPON = 0) then
+						players[i].threadweapon := 1;
+					if (players[i].control = 2) and (OPT_P2GAUNTLETNEXTWEAPON = 0) then
+						players[i].threadweapon := 1;
+				end;
+			end;
+		end;
+loc_4A5A83:
+
+		if (players[i].threadweapon <> 5) then
+			players[i].shaft_state := 0;
+			
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+	end;
+loc_4A5AB5:
+
+	if (ISKEY(KEY_PREVWEAPON) and (players[i].control = 1) and (players[i].weapch = 0)) or
+		(ISKEY(KEY_P2PREVWEAPON) and (players[i].control = 2) and (players[i].weapch = 0)) then
+	begin
+loc_4A5B65:
+		if (players[i].threadweapon = 0)
+			players[i].threadweapon = 8
+		else
+			players[i].threadweapon := players[i].threadweapon - 1;
+			
+		if (players[i].threadweapon = 0) then
+		begin
+			if (players[i].have_sg = 0) and (players[i].have_gl = 0) and (players[i].have_rl = 0) and (players[i].have_sh = 0) and
+				(players[i].have_rg = 0) and (players[i].have_pl = 0) and (players[i].have_bfg = 0) then
+			begin
+				players[i].threadweapon := 0;
+			end
+			else
+			begin
+				players[i].threadweapon := 0;
+				
+				if (MATCH_GAMETYPE <> Gametype_RAIL) then
+				begin
+					if (players[i].control = 1) and (OPT_GAUNTLETNEXTWEAPON = 0) then
+						players[i].threadweapon := 8;
+					if (players[i].control = 2) and (OPT_P2GAUNTLETNEXTWEAPON = 0) then
+						players[i].threadweapon := 8;
+				end;
+			end;
+		end;
+loc_4A5C70:
+
+		if (players[i].control = 1) then
+			nextwpnSkipempty := OPT_NEXTWPN_SKIPEMPTY
+		else
+			nextwpnSkipempty := OPT_P2NEXTWPN_SKIPEMPTY;
+			
+		if (players[i].threadweapon = 8) and ((players[i].have_bfg = 0) or 
+			((players[i].ammo_bfg = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		if (players[i].threadweapon = 7) and ((players[i].have_pl = 0) or 
+			((players[i].ammo_pl = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		if (players[i].threadweapon = 6) and ((players[i].have_rg = 0) or 
+			((players[i].ammo_rg = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		if (players[i].threadweapon = 5) and ((players[i].have_sh = 0) or 
+			((players[i].ammo_sh = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		if (players[i].threadweapon = 4) and ((players[i].have_rl = 0) or 
+			((players[i].ammo_rl = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		if (players[i].threadweapon = 3) and ((players[i].have_gl = 0) or 
+			((players[i].ammo_gl = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		if (players[i].threadweapon = 2) and ((players[i].have_sg = 0) or 
+			((players[i].ammo_sg = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		if (players[i].threadweapon = 1) and ((players[i].have_mg = 0) or 
+			((players[i].ammo_mg = 0) and (nextwpnSkipempty = 1))) then
+		begin
+			dec(players[i].threadweapon);
+		end;
+		
+		sub_4A245C(i);
+		players[i].weapch := 10;
+	end;
+loc_4A5E59:
+
+	if (ISKEY(KEY_WEAPON0) and (players[i].control = 1) and (players[i].weapchg = 0)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 0;
+	end;
+loc_4A5EE7:
+
+	if (ISKEY(KEY_WEAPON1) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_mg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 1;
+	end;
+	
+	if (ISKEY(KEY_WEAPON2) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_sg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 2;
+	end;
+	
+	if (ISKEY(KEY_WEAPON3) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_gl = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 3;
+	end;
+	
+	if (ISKEY(KEY_WEAPON4) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_rl = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 4;
+	end;
+	
+	if (ISKEY(KEY_WEAPON5) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_sh = 1)) then
+	begin
+		sub_4A245C(i);
+		if (players[i].weapon <> 5) then
+			players[i].weapchg := 10;
+		players[i].threadweapon := 5;
+	end;
+	
+	if (ISKEY(KEY_WEAPON6) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_rg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 6;
+	end;
+	
+	if (ISKEY(KEY_WEAPON7) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_pl = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 7;
+	end;
+	
+	if (ISKEY(KEY_WEAPON8) and (players[i].control = 1) and (players[i].weapchg = 0) and (players[i].have_bfg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 8;
+	end;
+	
+	
+	if (ISKEY(KEY_P2WEAPON0) and (players[i].control = 2) and (players[i].weapchg = 0)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 0;
+	end;
+loc_4A5EE7:
+
+	if (ISKEY(KEY_P2WEAPON1) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_mg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 1;
+	end;
+	
+	if (ISKEY(KEY_P2WEAPON2) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_sg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 2;
+	end;
+	
+	if (ISKEY(KEY_P2WEAPON3) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_gl = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 3;
+	end;
+	
+	if (ISKEY(KEY_P2WEAPON4) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_rl = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 4;
+	end;
+	
+	if (ISKEY(KEY_P2WEAPON5) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_sh = 1)) then
+	begin
+		sub_4A245C(i);
+		if (players[i].weapon <> 5) then
+			players[i].weapchg := 10;
+		players[i].threadweapon := 5;
+	end;
+	
+	if (ISKEY(KEY_P2WEAPON6) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_rg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 6;
+	end;
+	
+	if (ISKEY(KEY_P2WEAPON7) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_pl = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 7;
+	end;
+	
+	if (ISKEY(KEY_P2WEAPON8) and (players[i].control = 2) and (players[i].weapchg = 0) and (players[i].have_bfg = 1)) then
+	begin
+		sub_4A245C(i);
+		players[i].weapchg := 10;
+		players[i].threadweapon := 8;
+	end;
+	
+loc_4A6AC5:
+	ClipTriggers(players[i]);
+	
+	if (players[i].control = 1) and (ISKEY(KEY_MOVELEFT)) and (ISKEY(KEY_MOVERIGHT)) then
+	begin
+		if (players[i].dir < 2) then
+			players[i].dir := players[i].dir + 2;
+			
+		players[i].field_359 := 0;
+		exit;
+	end;
+loc_4A6BC3:
+
+	if (players[i].control = 2) and (ISKEY(KEY_P2MOVELEFT)) and (ISKEY(KEY_P2MOVERIGHT)) then
+	begin
+		if (players[i].dir < 2) then
+			players[i].dir := players[i].dir + 2;
+			
+		players[i].field_359 := 0;
+		exit;
+	end;
+	
+	if (players[i].item_haste > 0) then
+	begin
+		if (players[i].item_haste_time = 0) then
+		begin
+			SpawnSmoke(players[i].x, players[i].y + 20.0);
+			players[i].item_haste_time := 5;
+		end
+		else
+			dec(players[i].item_haste_time);
+	end;
+loc_4A6D9A:
+
+	if (players[i].dir < 2) then
+		players[i].dir := players[i].dir + 2;
+		
+	if ((abs(players[i].InertiaX) < 3.0) or ((players[i].field_358 > 5) and (players[i].field_358 < 150))) and
+		(players[i].field_359 > 0) then
+	begin
+		dec(players[i].field_359);
+	end;
+	
+	if (ISKEY(KEY_MOVELEFT) and (players[i].control = 1)) or
+		(ISKEY(KEY_P2MOVELEFT) and (players[i].control = 2)) or
+		((players[i].idd = 2) and ((players[i].keys and 2) = 2)) then
+	begin
+loc_4A6F64:
+		newInertiaX := 3.0 + strafeTableX[players[i].field_359];
+		if (players[i].crouch = 1) then
+			newInertiaX := 2.0;
+			
+		if (players[i].item_haste > 0) then
+			newInertiaX := newInertiaX + 1.0;
+			
+		if (players[i].InertiaX > 0.0) then
+			players[i].InertiaX := players[i].InertiaX - 0.8;
+			
+		if (-1 * newInertiaX < players[i].InertiaX) then
+			players[i].InertiaX := players[i].InertiaX - 0.35;
+		
+		if (-1 * newInertiaX > players[i].InertiaX)	then
+			players[i].InertiaX := -1 * newInertiaX;
+			
+		players[i].dir := 0;
+	end;
+loc_4A711F:
+end;

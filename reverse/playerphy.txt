@@ -1,0 +1,235 @@
+procedure playerphysic(i: byte);
+var
+	var_02: byte;
+	var_10: double;
+	var_18: double;
+	var_20: int64;
+begin
+	var_02 := 1;
+	var_10 := players[i].x;
+	var_18 := players[i].y;
+       
+	players[i].InertiaY := players[i].InertiaY + 0.056;
+       
+	if (players[i].InertiaY > -1.0) and (players[i].InertiaY < 0) then
+	begin
+		players[i].InertiaY := players[i].InertiaY / 1.11;
+	end;
+	if (players[i].InertiaY > 0.0) and (players[i].InertiaY < 5) then
+	begin
+		players[i].InertiaY := players[i].InertiaY * 1.1;
+	end;
+       
+	if (players[i].InertiaX < -0.2) or (players[i].InertiaX > 0.2) then
+	begin
+		try
+			if (players[i].dir > 1) then
+			begin
+				if (isonground(players[i]) <> 0) then
+					players[i].InertiaX := players[i].InertiaX / 1.14;
+				else
+					players[i].InertiaX := players[i].InertiaX / 1.025;
+			end;
+loc_49F017:
+        except
+loc_49F021:
+			players[i].InertiaX := 0.0;
+		end;
+	end
+	else
+	begin
+loc_49F051:
+		players[i].InertiaX := 0.0;
+	end;
+loc_49F075:
+	if (players[i].dead > 0) and (isonground(players[i]) = 0) then
+		players[i].InertiaX := players.InertiaX / 1.03;
+        
+	players[i].x := players[i].x + players[i].InertiaX;
+	players[i].y := players[i].y + players[i].InertiaY;
+       
+!	if (isonground(players[i]) = 0) then
+!		players[i].unk_358 := 0; //49F1D3
+
+	if (players[i].crouch <> 0) then
+	begin
+		if (brickcrouchonhead(players[i]) <> 0) and (isonground(players[i]) <> 0) then
+        begin
+			players[i].InertiaY := 0.0;
+			players[i].crouch := 1;
+			var_20 := (round(players[i].y) div 16) * 16 + 8;
+			players[i].y := var_20;
+		end;
+        else
+        begin
+loc_49F2FD:    
+			if (brickcrouchonhead(players[i]) <> 0) and (players[i].IneriaY < 0) then
+			begin
+				players[i].InertiaY := 0.0;
+				players[i].doublejump := 3;
+				players[i].crouch := 1;
+				var_20 := (round(players[i].y) div 16) * 16 + 8;
+				players[i].y := var_20;
+			end
+			else
+			begin
+loc_49F41F:       
+				if (isonground(players[i]) <> 0) and (players[i].InertiaY > 0) then
+				begin
+					players[i].crouch := 1;
+					players[i].InertiaY := 0.0;
+					var_20 := (round(players[i].y) div 16) * 16 + 8;
+					players[i].y := var_20;
+				end;
+			end;
+		end;
+loc_49F522:  
+		if (players[i].InertiaX < 0.0) then
+		begin
+			if (bbb[round(var_10 - 10.0) div 32, round(players[i].y - 8.0) div 16].block = 1) or
+				(bbb[round(var_10 - 10.0) div 32, round(players[i].y) div 16].block = 1) or
+				(bbb[round(var_10 - 10.0) div 32, round(players[i].y + 32.0) div 16].block = 1) then
+			begin
+loc_49F727:      
+				var_20 := trunc(var_10 / 32.0) * 32 + 9;
+				players[i].x := var_20;
+				players[i].InertiaX := 0;
+!				players[i].unk_359 := 0;
+				var_02 := 0;
+			end;  
+		end;
+loc_49F7C2:
+		if (players[i].InertiaX > 0.0) then
+		begin
+			if (bbb[round(var_10 + 10.0) div 32, round(players[i].y - 8.0) div 16].block = 1) or
+				(bbb[round(var_10 + 10.0) div 32, round(players[i].y) div 16].block = 1) or
+				(bbb[round(var_10 + 10.0) div 32, round(players[i].y + 16.0) div 16].block = 1) then
+			begin
+loc_49F9C7:
+				var_20 := trunc(var_10 / 32.0) * 32 + 22;
+				players[i].x := var_20;
+				players[i].InertiaX := 0;
+!				players[i].unk_359 := 0;
+				var_02 := 0;
+			end;
+		end;
+	end
+	else
+	begin
+loc_49FA67:
+		if (players[i].InertiaX < 0.0) then
+        begin
+			if (bbb[round(var_10 - 10.0) div 32, round(var_18 - 16.0) div 16].block = 1) or
+				(bbb[round(var_10 - 10.0) div 32, round(var_18) div 16].block = 1) or
+				(bbb[round(var_10 - 10.0) div 32, round(var_18 + 16.0) div 16].block = 1) then
+			begin
+loc_49FC21:      
+				var_20 := trunc(var_10 / 32.0) * 32 + 9;
+				players[i].x := var_20;
+				players[i].InertiaX := 0;
+!				players[i].unk_359 := 0;
+				var_02 := 0;
+			end;  
+		end;
+loc_49FCBC:   
+		if (players[i].InertiaX > 0.0) then
+        begin 
+			if (bbb[round(var_10 + 10.0) div 32, round(var_18 - 16.0) div 16].block = 1) or
+				(bbb[round(var_10 + 10.0) div 32, round(var_18) div 16].block = 1) or
+				(bbb[round(var_10 + 10.0) div 32, round(var_18 + 16.0) div 16].block = 1) then
+			begin
+loc_49FE76:         
+				var_20 := trunc(var_10 / 32.0) * 32 + 22;
+				players[i].x := var_20;
+				players[i].InertiaX := 0;
+!				players[i].unk_359 := 0;
+				var_02 := 0;     
+			end;
+		end;
+	end;
+loc_49FF11:       
+	if (brickonhead(players[i]) <> 0) and (isonground(players[i]) <> 0) then
+	begin
+		players[i].InertiaY := 0;
+		var_20 := (round(players[i].y) div 16) * 16 + 8;
+		players[i].y := var_20;
+	end
+	else
+	begin
+loc_49FFF4:     
+		if (brickonhead(players[i]) <> 0) and (players[i].InertiaY < 0.0) then
+		begin
+			players[i].InertiaY := 0;
+			players[i].doublejump := 3;
+			var_20 := (round(players[i].y) div 16) * 16 + 8;
+			players[i].y := var_20;
+		end
+        else
+        begin
+loc_4A00F9:     
+			if (isonground(players[i]) <> 0) and (players[i].InertiaY > 0.0) then
+			begin
+				players[i].InertiaY := 0;
+				if (players[i].unk_358 < 0xFF) then
+				begin
+					inc(players[i].unk_358);
+				end;
+loc_4A01AE:          
+				var_20 := (round(players[i].y) div 16) * 16 + 8;
+				players[i].y := var_20;
+			end; 
+		end;  
+	end;
+loc_4A0222:   
+	if (IsWaterContent(players[i]) <> 0) then
+	begin
+		if (players[i].InertiaY < -1.0) then
+        begin
+			players[i].InertiaY := -1.0;
+		end;
+loc_4A0294:        
+        if (players[i].InertiaY > 1.0) then
+        begin
+			players[i].InertiaY := 1.0;
+        end;
+loc_4A02E3:
+        if (players[i].InertiaX < -2.0) then
+        begin
+			players[i].InertiaX := -2.0;
+        end;
+loc_4A0332:        
+        if (players[i].InertiaX > 2.0) then
+        begin
+			players[i].InertiaX := 2.0;
+        end;       
+	end
+	else
+	begin
+loc_4A038A:
+		if (players[i].InertiaY < -5.0) then
+		begin
+			players[i].InertiaY := -5.0;
+		end;
+loc_4A03D9:        
+		if (players[i].InertiaY > 5.0) then
+		begin
+			players[i].InertiaY := 5.0;
+		end; 
+loc_4A0428:
+		if (players[i].InertiaX < -5.0) then
+		begin
+			players[i].InertiaX := -5.0;
+		end;
+loc_4A0477:        
+		if (players[i].InertiaX > 5.0) then
+		begin
+			players[i].InertiaX := 5.0;
+		end;  
+	end; 
+loc_4A04C6:
+       
+	if (players[i].y > 4000.0) then
+    begin
+		players[i].y := 3984.0;
+	end;
+end;

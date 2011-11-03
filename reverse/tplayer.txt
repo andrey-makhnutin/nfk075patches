@@ -1,0 +1,95 @@
+byte	0x00	??
+
+byte	0x04	dead
+byte	0x05	frame
+
+byte	0x07	??
+byte	0x08	doublejump
+
+byte	0x0A	??
+byte	0x0B	threadweapon
+byte	0x0C	dir
+byte	0x0D	idd	;0 - player1, 1 - player2, 2 - bot
+byte	0x0E	control
+
+byte	0x10	??
+byte	0x11	??
+byte	0x12	paintime
+byte	0x13	??
+byte	0x14	justrespawned
+byte	0x15	justrespawned2
+byte	0x16	gantl_s
+byte	0x17	??
+byte	0x18	??
+byte	0x19	gantl_state
+byte	0x1A	??
+
+byte	0x1D	ammo_sg
+byte	0x1E	ammo_gl
+byte	0x1F	ammo_rl
+byte	0x20	ammo_sh
+byte	0x21	ammo_rg
+byte	0x22	ammo_pl
+byte	0x23	ammo_bfg
+
+word	0x38	SND_Jump
+
+qword	0x48	clippixel
+dword	0x50	health
+
+shortstr 0x7B	netname
+
+word	0xF8	keys
+byte	0xFA	crouch
+
+byte	0xFD	??
+word	0xFE	??
+char[64] 0x100	Location
+
+shortstr 0x141	ip
+
+qword	0x248	botangle
+
+byte	0x274	netobject
+byte	0x275	item_quad
+byte	0x276	item_regen
+byte	0x277	item_battle
+byte	0x278	item_flight
+byte	0x279	item_haste
+byte	9x27A	item_invis
+byte	0x27B	??
+byte	0x27C	??
+byte	0x27D	item_regen_time
+byte	0x27E	??
+byte	0x27F	item_flight_time
+
+byte	0x281	??
+
+byte	0x283	??
+byte	0x284	have_rl
+byte	0x285	have_gl
+byte	0x286	have_rg
+byte	0x287	have_bfg
+byte	0x288	have_sg
+byte	0x289	have_mg
+byte	0x28A	have_sh
+byte	0x28B	have_pl
+wrod	0x28C	dxid
+word	0x28E	respawn
+qword	0x290	x
+qword	0x298	y
+
+qword	0x2B0	fangle
+qword	0x2B8	InertiaX
+qword	0x2C0	InertiaY
+
+word	0x356	ping
+byte	0x358	??
+byte	0x359	??
+byte	0x35A	??
+byte	0x35B	??
+dword	0x35C	??
+dword	0x360	??
+
+dword	0x368	crc
+dword	0x36C	time_delta
