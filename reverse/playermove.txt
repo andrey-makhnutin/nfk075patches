@@ -970,4 +970,31 @@ loc_4A6F64:
 		players[i].dir := 0;
 	end;
 loc_4A711F:
+
+	if (ISKEY(KEY_MOVERIGHT) and (players[i].control = 1)) or
+		(ISKEY(KEY_P2MOVERIGHT) and (players[i].control = 2)) or
+		((players[i].idd = 2) and ((players[i].keys and 1) = 1) then
+	begin
+loc_4A71DA:
+		newInertiaX := 3.0;
+		
+		newInertiaX := newInertiaX + strafeTableX[players[i].field_359];
+		
+		if (players[i].crouch = 1) then
+			newInertiaX := 2.0;
+		
+		if (players[i].item_haste > 0) then
+			newInertiaX := newInertiaX + 1.0;
+			
+		if (players[i].InertiaX < 0.0) then
+			players[i].InertiaX := players[i].InertiaX + 0.8;
+
+		if (players[i].InertiaX < newInertiaX) then
+			players[i].InertiaX := players[i].InertiaX + 0.35;
+			
+		if (players[i].InertiaX > newInertiaX) then
+			players[i].InertiaX := newInertiaX;
+			
+		plyaers[i].dir := 1;
+	end;
 end;
