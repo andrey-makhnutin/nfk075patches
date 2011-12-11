@@ -16,6 +16,7 @@ MMP_LOBBY_ANSWERPING		equ		73
 MMP_LOBBY_GAMESTATE_RESULT	equ		85
 MMP_SPECTATORDISCONNECT		equ		38
 MMP_IAMQUIT	equ		75
+MMP_CTF_EVENT_FLAGDROP	equ	35h
 
 Gametype_DOM	equ	7
 
@@ -539,6 +540,9 @@ NFKPlanet_GetTok2:	nop
 exeAddr	47FDFCh
 BD_Avail:	nop
 
+exeAddr 484920h
+BNETSendData2All:	nop
+
 exeAddr	484BC4h
 BNETSendData2IP_:	nop
 
@@ -555,15 +559,301 @@ exeAddr	48C961h
 patch114_begin:
 	call	newApplyDamage_selfSplashDamage
 patch114_end:
-
+	
 exeAddr 49CB38h
 IsWaterContentHEAD: nop
 
 exeAddr	4AB800h
 DOM_Think:	nop
 
+exeAddr 4ABF78h
+patch158_begin:
+CTF_CLNETWORK_DropFlag	proc
+									; al - PacketType: byte
+									; edx - Data: Pointer
+									; ecx - PacketSize
+;------- locals --------------------
+PacketType		EQU		<[ebp - 4]>		; byte, size = 1
+PacketSize		EQU		<[ebp - 8]>		; Integer, size = 4
+i				EQU		<[ebp - 0Ch]>	; Integer, size = 4
+flagImageIndex	EQU		<[ebp - 0Dh]>	; byte, size = 1
+flagDir			EQU		<[ebp - 0Eh]>	; byte, size = 1
+playerFound		EQU		<[ebp - 0Fh]>	; byte, size = 1
+objectInserted	EQU		<[ebp - 10h]>	; byte, size = 1
+tempInt			EQU		<[ebp - 14h]>	; integer, size = 4
+;------- codes ---------------------
+
+	push	ebp
+	mov		ebp, esp
+	add		esp, -10h
+	push	esi
+	push	edi
+	
+	mov		esi, edx			; esi = Data
+	mov		PacketType, al
+	mov		PacketSize, ecx
+	
+	call	ismultip
+	cmp		al, 2
+	jnz		exit
+	
+	mov		byte ptr flagDir, 0
+	mov		byte ptr flagImageIndex, 0
+	
+	; if the flag has just been dropped, loop through players to clear 'flagcarrier' flag
+	mov		byte ptr playerFound, 0
+	cmp		byte ptr PacketType, MMP_CTF_EVENT_FLAGDROP
+	jnz		isGamestate
+	
+	mov		ax, [esi + 3]	; TMP_CTF_FlagDrop.DropperDXID
+	mov		edx, offset aLost
+	call	CTF_Event_Message
+	xor		eax, eax
+	mov		i, eax
+playersLoop:
+	mov		edi, dword ptr [g_players + eax * 4]
+	test	edi, edi
+	jz		playersLoop_cont
+	
+	mov		ax, [edi + 28Ch]	; TPlayer.DXID
+	cmp		ax, [esi + 3]		; TMP_CTF_FlagDrop.DropperDXID
+	jnz		playersLoop_cont
+	
+	mov		byte ptr playerFound, 1
+	mov		byte ptr [edi + 0FCh], 0	; TPlayer.flagcarrier
+	
+	; the player who dropped the flag is found, decide what color the flag was of from that player's team color
+	mov		al, [edi + 26h]		; TPlayer.team
+	mov		flagImageIndex, al
+	; remember also the direction of the player
+	mov		al, [edi + 0Ch]		; TPlayer.dir
+	and		al, 1
+	mov		flagDir, al
+	
+playersLoop_cont:
+	inc		dword ptr i
+	mov		eax, i
+	cmp		al, 7
+	jle		playersLoop
+	
+	cmp		byte ptr playerFound, 0
+	jnz		notGamestate
+	; flag dropper hasn't been found, try to extract info from the packet
+	cmp		byte ptr PacketSize, 17h
+	jnz		flagError
+	mov		al, [esi + 15h]		; TMP_CTF_FlagDrop.imageindex
+	mov		dl, [esi + 16h]		; TMP_CTF_FlagDrop.dir
+	mov		byte ptr flagImageIndex, al	
+	mov		byte ptr flagDir, dl		
+	jmp		notGamestate
+flagError:
+	; old servers don't give us any data to decide the color of the flag, print error and disconnect
+	mov		eax, offset aErrorMsg
+	call	AddMessage
+	mov		eax, offset lstr_disconnect
+	call	ApplyHCommand
+	retn
+	
+isGamestate:
+	; if the message is a part of gamestate, flag color is stored in DropperDXID value
+	mov		al, [esi + 3]		; TMP_CTF_FlagDrop.DropperDXID
+	mov		flagImageIndex, al
+	mov		byte ptr flagDir, 0	; TODO: random(1)
+	
+notGamestate:
+	mov		byte ptr objectInserted, 0
+	; loop through all objects, delete old flags of the same color and insert the new one
+	xor		eax, eax
+	mov		i, eax
+objectsLoop:
+	mov		edi, [objects + eax * 4]
+	; check if the object is a flag of the same color
+	cmp		byte ptr [edi + 4], 0	; TMonoSprite.dead
+	jnz		notAFlag
+	mov		al, flagImageIndex
+	cmp		byte ptr [edi + 0Dh], al	; TMonoSprite.imageindex
+	jnz		notAFlag
+	lea		eax, [edi + 50h]	; TMonoSprite.name
+	mov		edx, offset aFlag
+	call	PStrCmp
+	jnz		notAFlag
+	; flag of the same color has been found, mark it as dead
+	mov		byte ptr [edi + 4], 2
+	
+notAFlag:
+	; if the object is dead, and we haven't yet inserted the new flag, insert.
+	cmp		byte ptr objectInserted, 0
+	jnz		objectsLoop_cont
+	cmp		byte ptr [edi + 4], 2	; TMonoSprite.dead
+	jnz		objectsLoop_cont
+	; fill the object fields
+	; TMonoSprite.name
+	lea		eax, [edi + 50h]
+	mov		byte ptr [eax], 4
+	mov		dword ptr [eax + 1], 'galf'
+	; TMonoSprite.X
+	fld		dword ptr [esi + 5]		; TMP_CTF_FlagDrop.X
+	fstp	qword ptr [edi + 20h]	; TMonoSprite.X
+	; TMonoSprite.Y
+	fld		dword ptr [esi + 9]		; TMP_CTF_FlagDrop.Y
+	fstp	qword ptr [edi + 28h]	; TMonoSprite.Y
+	wait
+	; TMonoSprite.DXID
+	mov		ax, [esi + 1]			; TMP_CTF_FlagDrop.DXID
+	mov		[edi + 70h], ax			; TMonoSprite.DXID
+	; TMonoSprite.dead
+	mov		byte ptr [edi + 4], 0	; TMonoSprite.dead
+	; TMonoSprite.dude
+	mov		byte ptr [edi + 72h], 1	; TMonoSprite.dude
+	; TMonoSprite.topdraw
+	mov		byte ptr [edi + 73h], 0	; TMonoSprite.topdraw
+	; TMonoSprite.frame
+	mov		byte ptr [edi + 14h], 0 ; TMonoSprite.frame
+	; TMonoSprite.mass
+	xor		edx, edx
+	mov		[edi + 78h], edx		; TMonoSprite.mass low dword
+	mov		dword ptr [edi + 7Ch], 40140000h	; TMonoSprite.mass high dword. 0x4014000000000000 is double 5.0 
+	; TMonoSprite.weapon
+	mov		byte ptr [edi + 0Ah], 0			; TMonoSprite.weapon
+	; TMonoSprite.health
+	mov		word ptr [edi + 16h], 3500
+	
+	; TMonoSprite.imageindex
+	mov		al, flagImageIndex
+	mov		[edi + 0Dh], al		; TMonoSprite.imageindex
+	; TMonoSprite.dir
+	mov		dl, flagDir
+	mov		[edi + 0Eh], dl		; TMonoSprite.dir
+	
+	; if the flag was dropped (message is not gamestate), put DropperDXID into fangle field
+	cmp		byte ptr PacketType, MMP_CTF_EVENT_FLAGDROP
+	jnz		@F
+	movzx	eax, word ptr [esi + 3]	; TMP_CTF_FlagDrop.DropperDXID
+	mov		tempInt, eax
+	fild	dword ptr tempInt
+	fstp	qword ptr [edi + 40h]	; TMonoSprite.fangle
+	wait
+@@:
+	; TMonoSprite.InertiaX
+	fld		dword ptr [esi + 0Dh]	; TMP_CTF_FlagDrop.InertiaX
+	fstp	qword ptr [edi + 80h]	; TMonoSprite.InertiaX
+	; TMonoSprite.InertiaY
+	fld		dword ptr [esi + 11h]	; TMP_CTF_FlagDrop.InertiaY
+	fstp	qword ptr [edi + 88h]	; TMonoSprite.InertiaY
+	wait
+	; TMonoSprite.clippixel
+	mov		word ptr [edi + 6], 4	; TMonoSprite.clippixel
+	
+	cmp		byte ptr MATCH_DRECORD, 0
+	jnz		exit
+	mov		eax, edi
+	call	CTF_SAVEDEMO_FlagDrop
+	jmp		exit
+objectsLoop_cont:
+	inc		dword ptr i
+	mov		eax, i
+	cmp		eax, 1000
+	jle		objectsLoop
+exit:
+	pop		edi
+	pop		esi
+	mov		esp, ebp
+	pop		ebp
+	retn
+;---------- data -------------
+align 4
+	dd	0FFFFFFFFh
+	dd	30
+aErrorMsg	db	'ERROR: Can''t find flag dropper', 0
+align 4
+aLost	db	4, 'lost', 0
+align 4
+aFlag	db	4, 'flag', 0
+CTF_CLNETWORK_DropFlag	endp
+patch158_end:
+
+exeAddr	4AC4ACh
+CTF_SAVEDEMO_FlagDrop:	nop
+
+exeAddr 4AC5A4h
+patch157_begin:
+; slightly modified function CTF_SVNETWORK_FlagDrop. Size of the packet is increased
+; and now contains information about dropped flag color and direction
+CTF_SVNETWORK_FlagDrop	proc
+									; eax - sender: TMonoSprite
+;------- locals --------------------
+sender			EQU		<[ebp - 4]>		; TMonoSprite, size = 4
+MsgSize			EQU		<[ebp - 8]>		; Integer, size = 4
+Flag_dir		EQU		<[ebp - 9]>		; byte, size = 1
+Flag_imageindex	EQU		<[ebp - 0Ah]>	; byte, size = 1
+Flag_InertiaY	EQU		<[ebp - 0Eh]>	; Single, size = 4
+Flag_InertiaX	EQU		<[ebp - 12h]>	; Single, size = 4
+Flag_Y			EQU		<[ebp - 16h]>	; Single, size = 4
+Flag_X			EQU		<[ebp - 1Ah]>	; Single, size = 4
+Flag_DropperDXID EQU	<[ebp - 1Ch]>	; word, size = 2
+Flag_DXID		EQU		<[ebp - 1Eh]>	; word, size = 2
+Data			EQU		<[ebp - 1Fh]>	; byte, size = 1
+;------- const ---------------------
+FlagDropMsgSize	EQU		17h
+;------- codes ---------------------
+
+	push	ebp
+	mov		ebp, esp
+	add		esp, -20h
+	mov		sender, eax
+	call	ismultip
+	cmp		al, 1
+	jnz		exit
+	push	FlagDropMsgSize
+	pop		dword ptr MsgSize
+	mov		byte ptr Data, MMP_CTF_EVENT_FLAGDROP
+	mov		eax, sender
+	fld		qword ptr [eax + 40h]	; TMonoSprite.fangle
+	call	TRUNC
+	cmp		edx, 0
+	jnz		@F
+	cmp		eax, 0FFFFh
+	jbe		no_overflow
+@@:
+	xor		eax, eax
+no_overflow:
+	mov		Flag_DropperDXID, ax
+	mov		eax, sender
+	mov		dx, [eax + 70h]			; TMonoSprite.DXID
+	mov		Flag_DXID, dx
+	fld		qword ptr [eax + 20h]	; TMonoSprite.X
+	fstp	dword ptr Flag_X
+	fld		qword ptr [eax + 28h]	; TMonoSprite.Y
+	fstp	dword ptr Flag_Y
+	fld		qword ptr [eax + 80h]	; TMonoSprite.InertiaX
+	fstp	dword ptr Flag_InertiaX
+	fld		qword ptr [eax + 88h]	; TMonoSprite.InertiaY
+	fstp	dword ptr Flag_InertiaY
+	mov		dl, [eax + 0Dh]			; TMonoSprite.imageindex
+	mov		Flag_imageindex, dl
+	mov		dl, [eax + 0Eh]			; TMonoSprite.dir
+	mov		Flag_dir, dl
+	push	1
+	lea		edx, Data
+	mov		cx, MsgSize
+	mov		eax, mainform
+	call	BNETSendData2All
+exit:
+	mov		esp, ebp
+	pop		ebp
+	retn	
+CTF_SVNETWORK_FlagDrop	endp
+exeAddr 4AC630h
+patch157_end:
+
+exeAddr 4AD594h
+CTF_Event_Message:	nop
+
 exeAddr 4B2014h
 playsound:  nop
+
+exeAddr 4B4B9Ch
+lstr_disconnect	db 'disconnect', 0
 
 exeAddr	4B516Ah
 patch43_begin:
@@ -1284,7 +1574,10 @@ patch134_end:
 exeAddr	509272h
 BNET_NFK_ReceiveData_afterPacketFilter:	nop
 
-
+exeAddr 5094ACh
+patch159_begin:
+	dd		offset BNET_NFK_ReceiveData_on_MMP_CTF_EVENT_FLAGDROP
+patch159_end:
 
 exeAddr	509612h
 patch75_begin:
@@ -1441,6 +1734,15 @@ playerloop_break:
 onMMP_PING2	endp
 ENDIF
 
+exeAddr 515A83h
+patch160_begin:
+BNET_NFK_ReceiveData_on_MMP_CTF_EVENT_FLAGDROP:
+	mov		edx, [ebp - 8]		; data
+	mov		ecx, [ebp + 8]		; DataSize
+	call	CTF_CLNETWORK_DropFlag
+	jmp		BNET_NFK_ReceiveData_default
+patch160_end:
+
 exeAddr	516895h
 BNET_NFK_ReceiveData_default:	nop
 
@@ -1529,6 +1831,9 @@ lstrpart_dq_is_dq		db '" is "', 0
 
 exeAddr	53E1B8h
 lstrpart_dq_is_set_to_dq	db '" is set to "', 0
+
+exeAddr 542134h
+ApplyHCommand:	nop
 
 exeAddr	543F30h
 patch120_begin:
@@ -1841,6 +2146,9 @@ SPECTATOR_TIMEOUT	dw	7000
 exeAddr 54C274h
 pingsend_tick   dd  0
 
+exeAddr 54C2B8h
+MATCH_DRECORD	db	0
+
 exeAddr 54C7C4h
 SYS_MAXAIR  db  0
 
@@ -1873,6 +2181,9 @@ mapcancel	dd	0
 
 exeAddr	555B00h
 starttime	dd	0
+
+exeAddr 555B48h
+objects	dd	0 
 
 exeAddr 757BC8h
 gametime    dd  0
@@ -4040,10 +4351,18 @@ ENDIF
 				;dd		patch153_end - patch153_begin
 				;dd		patch154_begin
 				;dd		patch154_end - patch154_begin
-				dd		patch155_begin
+				dd		patch155_begin				; jump to new MMP_DAMAGEPLAYER handler
 				dd		patch155_end - patch155_begin
-				dd		patch156_begin
+				dd		patch156_begin				; new MMP_DAMAGEPLAYER handler
 				dd		patch156_end - patch156_begin
+				dd		patch157_begin				; new CTF_SVNETWORK_FlagDrop function
+				dd		patch157_end - patch157_begin
+				dd		patch158_begin				; new CTF_CLNETWORK_DropFlag function
+				dd		patch158_end - patch158_begin
+				dd		patch159_begin				; made MMP_CTF_EVENT_FLAGDROP_GAMESTATE switch case point to the MMP_CTF_EVENT_FLAGDROP handler
+				dd		patch159_end - patch159_begin
+				dd		patch160_begin				; modified MMP_CTF_EVENT_FLAGDROP handler
+				dd		patch160_end - patch160_begin
 patchSize_end:
 
 end start
