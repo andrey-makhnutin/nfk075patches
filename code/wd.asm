@@ -552,6 +552,19 @@ BNETSendData2HOST:  nop
 exeAddr 486E74h
 SpawnBubble:        nop
 
+exeAddr 48BCFCh
+CalculateFragBar	proc
+
+exeAddr 48C181h
+patch161_begin::
+	jmp		uselessCodeEnd
+patch161_end::
+
+exeAddr	48C20Bh
+uselessCodeEnd:
+
+CalculateFragBar	endp
+
 exeAddr	48C4E8h
 PAINSOUNDZZ:	nop
 
@@ -652,7 +665,7 @@ flagError:
 	call	AddMessage
 	mov		eax, offset lstr_disconnect
 	call	ApplyHCommand
-	retn
+	jmp		exit
 	
 isGamestate:
 	; if the message is a part of gamestate, flag color is stored in DropperDXID value
@@ -4351,10 +4364,10 @@ ENDIF
 				;dd		patch153_end - patch153_begin
 				;dd		patch154_begin
 				;dd		patch154_end - patch154_begin
-				dd		patch155_begin				; jump to new MMP_DAMAGEPLAYER handler
-				dd		patch155_end - patch155_begin
-				dd		patch156_begin				; new MMP_DAMAGEPLAYER handler
-				dd		patch156_end - patch156_begin
+				;dd		patch155_begin				; jump to new MMP_DAMAGEPLAYER handler
+				;dd		patch155_end - patch155_begin
+				;dd		patch156_begin				; new MMP_DAMAGEPLAYER handler
+				;dd		patch156_end - patch156_begin
 				dd		patch157_begin				; new CTF_SVNETWORK_FlagDrop function
 				dd		patch157_end - patch157_begin
 				dd		patch158_begin				; new CTF_CLNETWORK_DropFlag function
@@ -4363,6 +4376,8 @@ ENDIF
 				dd		patch159_end - patch159_begin
 				dd		patch160_begin				; modified MMP_CTF_EVENT_FLAGDROP handler
 				dd		patch160_end - patch160_begin
+				dd		patch161_begin
+				dd		patch161_end - patch161_begin
 patchSize_end:
 
 end start
