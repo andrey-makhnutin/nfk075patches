@@ -80,6 +80,9 @@ PStrNCpy:	nop			;params:
 exeAddr	402B74h
 PStrCmp:	nop
 
+exeAddr	402C88h
+RandInt:	nop
+
 exeAddr	4036E4h
 HandleFinally:	nop
 
@@ -568,10 +571,88 @@ CalculateFragBar	endp
 exeAddr	48C4E8h
 PAINSOUNDZZ:	nop
 
+exeAddr 48C8A0h
+ApplyDamage:	nop
+
 exeAddr	48C961h
 patch114_begin:
 	call	newApplyDamage_selfSplashDamage
 patch114_end:
+
+exeAddr 48E764h
+; ==================================================================
+PlasmaSplash	proc
+;------- locals -----------------
+plasma		EQU		<[ebp - 4]>		; TMonoSprite, size = 4
+dist		EQU		<[ebp - 10h]>	; double, size = 8
+;------- code -------------------
+exeAddr 48E80Ch
+patch162_begin::
+	mov		eax, plasma
+	mov		edx, [eax + 10h]	; TMonoSprite.player
+	fld		qword ptr [edx + 290h]	; TPlayer.x
+	fsub	qword ptr [eax + 20h]	; TMonoSprite.x
+	fmul	st(0), st(0)
+	fld		qword ptr [edx + 298h]	; TPlayers.y
+	fsub	qword ptr [eax + 28h]	; TMonoSprite.y
+	fmul	st(0), st(0)
+	faddp	st(1), st
+	fsqrt
+	fst		qword ptr dist
+	wait
+	fcomp	maxDist
+	fnstsw	ax
+	sahf
+	jnb		near ptr exit
+	cmp		byte ptr [edx + 277h], 0	; TPlayer.item_battle
+	jz		distCalcEnd	; continue with damage calculation and applying
+	mov		eax, edx
+	call	PlayBattleSuitSound
+	jmp		near ptr throwPlayer
+exeAddr 48E862h
+patch162_end::
+distCalcEnd:	nop
+
+exeAddr 48E8D3h
+throwPlayer:	nop
+
+exeAddr	48E90Ah
+exit:	nop
+
+;------- datas ------------------
+exeAddr	48E910h
+maxDist		dd	30.0
+
+PlasmaSplash	endp
+; ==================================================================
+
+exeAddr 492731h
+patch164_begin:
+	cmp		byte ptr [eax + 277h], 0	; TPlayer.item_battle
+	push	eax
+	jz		@F
+	call	PlayBattleSuitSound
+	jmp		noDamage
+@@:
+	push	3
+	push	6
+	pop		eax
+	call	RandInt
+	mov		edx, eax
+	add		edx, 0Ch
+	mov		ecx, objects
+	mov		eax, [ebp - 4]
+	call	ApplyDamage
+noDamage:
+	pop		eax
+	mov		byte ptr [eax + 11h], 8		; TPlayer.inlava
+	push	dword ptr [eax + 294h]		; TPlayer.x high dword
+	push	dword ptr [eax + 290h]		; TPlayer.x low dword
+	push	dword ptr [eax + 29Ch]		; TPlayer.y high dword
+	push	dword ptr [eax + 298h]		; TPlayer.y low dword
+	mov		ax, 22h
+	call	playsound
+patch164_end:
 	
 exeAddr 49CB38h
 IsWaterContentHEAD: nop
@@ -2663,6 +2744,9 @@ align 16
 patch113_begin:
 ; returns 0 in eax if player has battlesuit
 newApplyDamage_selfSplashDamage	proc
+	jns		@F
+	adc		eax, 0
+@@:
 	push	eax
 	mov		eax, [ebp - 4]		; player
 	cmp		byte ptr [eax + 277h], 0
@@ -3441,6 +3525,31 @@ BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	proc
 	jmp		BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	endp
 patch156_end:
+
+align 16
+patch163_begin:
+; plays battlesuit sound if needed (not more than once per second)
+; eax: TPlayer - player with a battlesuit
+PlayBattleSuitSound	proc
+	push	ebp
+	mov		ebp, esp
+	push	eax
+	cmp		byte ptr [eax + 27Eh], 0	; TPlayer.item_battle_time
+	jnz		exit
+	push	dword ptr [eax + 294h]		; TPlayer.x high dword
+	push	dword ptr [eax + 290h]		; TPlayer.x low dword
+	push	dword ptr [eax + 29Ch]		; TPlayer.y	high dword
+	push	dword ptr [eax + 298h]		; TPlayer.y low dword
+	mov		ax, 45
+	call	playsound
+	pop		eax
+	mov		byte ptr [eax + 27Eh], 50	; TPlayer.item_battle_time
+exit:
+	mov		esp, ebp
+	pop		ebp
+	retn
+PlayBattleSuitSound	endp
+patch163_end:
 
 IFDEF _MEMDEBUG
 
@@ -4376,8 +4485,14 @@ ENDIF
 				dd		patch159_end - patch159_begin
 				dd		patch160_begin				; modified MMP_CTF_EVENT_FLAGDROP handler
 				dd		patch160_end - patch160_begin
-				dd		patch161_begin
+				dd		patch161_begin				; removed useless code causing spectators follow bug
 				dd		patch161_end - patch161_begin
+				dd		patch162_begin				; check for battle suit in plasma splash damage calculation code (no damage with BS)
+				dd		patch162_end - patch162_begin
+				dd		patch163_begin				; PlayBattleSuitSound function
+				dd		patch163_end - patch163_begin
+				dd		patch164_begin				; check for battle suit before applying damage while in lava (no damage with BS)
+				dd		patch164_end - patch164_begin
 patchSize_end:
 
 end start
