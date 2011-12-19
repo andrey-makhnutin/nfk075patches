@@ -21,8 +21,8 @@ begin
 		players[i].frame := 0;
 		players[i].respawn := OPT_FORCERESPAWN * 50;
 		
-		if (players[i].idd = 2) and (off_54D85C <> 0) then
-			players[i].respawn := $FFFF;
+!		if (players[i].idd = 2) and (off_54D85C <> 0) then
+!			players[i].respawn := $FFFF;
 				
 		players[i].gantl_state := 0;
 		players[i].gantl_s := 0;
@@ -41,27 +41,27 @@ loc_4A27BF:
 	if (players[i].justrespawned2 > 0) then
 		dec(players[i].justrespawned2);
 		
-	if (players[i].field_35C > STIME) then
-	begin
-		if (players[i].field_35B < 30) then
-			inc(players[i].field_35B);
-	end
-	else
-	begin
+!	if (players[i].field_35C > STIME) then
+!	begin
+!		if (players[i].field_35B < 30) then
+!			inc(players[i].field_35B);
+!	end
+!	else
+!	begin
 loc_4A28D8:
-		if (players[i].field_35B > 0) then
-			dec(players[i].field_35B);
-	end;
+!		if (players[i].field_35B > 0) then
+!			dec(players[i].field_35B);
+!	end;
 loc_4A291B:	
-	
-	if (players[i].field_360 < STIME) and (players[i].field_35B > 0) then
-	begin
-		players[i].field_360 := (STIME + 70) - players[i].field_35B * 1.5;
-		
-		inc(players[i].field_35A);
-		if (players[i].field_35A > 5) then
-			players[i].field_35A := 0;
-	end;
+!	
+!	if (players[i].field_360 < STIME) and (players[i].field_35B > 0) then
+!	begin
+!		players[i].field_360 := (STIME + 70) - players[i].field_35B * 1.5;
+!		
+!		inc(players[i].field_35A);
+!		if (players[i].field_35A > 5) then
+!			players[i].field_35A := 0;
+!	end;
 loc_4A2A35:	
 	players[i].location := GetPlayerLocation(i);
 	
@@ -209,18 +209,18 @@ loc_4A3239:
 			BNETSendData2Host(@IamRespawnMsg, MsgSize, 1);
 			players[i].clientrespawntimeout := GetTickCount() + 3000;
 		end
-		else
+		else	
 		begin
 loc_4A37BD:	
-			if (ismultip() == 1) then
+			if (ismultip() = 1) then
 			begin
-				sub_4A3852(players[i]);
-				sub_4A1B2C(players[i], 0);
+				resetplayer(players[i]);
+				FindRespawnPoint(players[i], 0);
 				MsgSize := sizeof(TPlayerRespawn);
 				PlayerRespawnMsg.Data := MMP_PLAYERRESPAWN;
 				PlayerRespawnMsg.dxid := players[i].dxid;
-				PlayerRespawnMsg.x := byte_555A8C;
-				PlayerRespawnMsg.y := byte_555A8D;
+				PlayerRespawnMsg.x := SPAWNX;
+				PlayerRespawnMsg.y := SPAWNY;
 				BNETSendData2Host(@PlayerRespawnMsg, MsgSize, 1);
 			end
 			else
@@ -228,8 +228,8 @@ loc_4A37BD:
 loc_4A3852:
 				if (ismultip() == 2) then
 				begin
-					sub_4A2124(players[i]);
-					sub_4A1B2C(players[i], 0);
+					resetplayer(players[i]);
+					FindRespawnPoint(players[i], 0);
 				end;
 			end;
 		end;		
@@ -238,7 +238,7 @@ loc_4A3893:
 	if (players[i].dead > 0) then
 		if ((ISKEY(KEY_FIRE) <> 0) and (players[i].control = 1)) or
 			((ISKEY(KET_P2FIRE) <> 0) and (players[i].control = 2)) or
-			((players[i].idd = 2) and (players[i] and $20 = $20)) then
+			((players[i].idd = 2) and (players[i].keys and $20 = $20)) then
 		begin
 			if (players[i].respawn > 2) and ((OPT_FORCERESPAWN * 50 - 50) > players[i].respawn) then
 			begin
@@ -249,27 +249,28 @@ loc_4A3893:
 		exit;
 	end;
 loc_4A3A17:
-	if (players[i].idd <> 2) and ((INCONSOLE <> 0) or (INGAMEMENU <> 0) or (MESSAGEMODE <> 0)) then
+!	if (players[i].idd <> 2) and ((INCONSOLE <> 0) or (INGAMEMENU <> 0) or (MESSAGEMODE <> 0)) then
 	begin
 		ClipTriggers(players[i]);
-		if (players[i].field_1A > 0) then
-			sub_4A24CC(i);
+!		if (players[i].shaft_state > 0) then
+!			sub_4A24CC(i);
 		if (players[i].dir < 2) then
 			players[i].dir := players[i].dir + 2;
-		setcrosshairpos(players[i], 1, trunc(players[i].x), trunc(players[i].y), players[i].field_4C, players[i].clippixel);
+!		setcrosshairpos(players[i], 1, trunc(players[i].x), trunc(players[i].y), players[i].field_4C, players[i].clippixel);
+		exit;
 	end;
 loc_4A3BAD:
-	if (isparamstr('+showinput') <> 0) then
-	begin
-		for var_18 := 1 to 255 do
-			AddMessage('KEY-' + Chr(var_18) + '-' + IntToStr(var_18));
-	end;
+!	if (isparamstr('+showinput') <> 0) then
+!	begin
+!		for var_18 := 1 to 255 do
+!			AddMessage('KEY-' + Chr(var_18) + '-' + IntToStr(var_18));
+!	end;
 loc_4A3C35:
 	if (MATCH_DEMOPLAY <> 0) then
 		exit;
 		
-	if (isTooLaggy() <> 0) then
-		exit;
+!	if (isTooLaggy() <> 0) then
+!		exit;
 		
 	if (players[i].control = 1) then
 	begin
@@ -289,6 +290,33 @@ loc_4A3CB0:
 					var_18 := -1 * var_18;
 			end;	
 loc_4A3CD9:			
+			if (var_18 > 0) then
+			begin
+				if (OPT_MOUSESMOOTH > 0) and (var_18 > 0) and (OPT_MOUSESMOOTH < var_18) then
+					var_18 := OPT_MOUSESMOOTH;
+					
+				players[i].clippixel := players[i].clippixel + 
+					((OPT_M_ACCELERATE * var_18) / (10 - OPT_SENSITIVITY)) / unk_4A7410 + 
+					var_18 / (10 - OPT_SENSITIVITY);
+					
+				if ((unk_54C2F8 + unk_54C2FC) < players[i].clippixel) then
+				begin
+					players[i].clippixel := unk_54C2F8 + unk_54C2FC;
+				end;
+			end;
+loc_4A3E16:
+			if (var_18 < 0) then
+			begin
+				if (OPT_MOUSESMOOTH > 0) and (var_18 < 0) and (OPT_MOUSESMOOTH > var_18) then
+					var_18 := -1 * OPT_MOUSESMOOTH;
+					
+				players[i].clippixel := players[i].clippixel + 
+					var_18 / (10 - OPT_MOUSESMOOTH) + 
+					OPT_M_ACCELERATE * var_18 / (10 - OPT_SENSITIVITY) / unk_4A7410;
+					
+				if ((-1 * unk_54C2F8 - unk_54C2FC) > players[i].clippixel) then;
+				
+			end;
 		end;
 loc_4A3F77:
 	end;
