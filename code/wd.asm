@@ -1193,7 +1193,17 @@ exeAddr	4BA98Ch
 NFKPlanet_SortServerList_nullStr	dd	0
 
 exeAddr	4BAA84h
-BNET_DirectConnect:		nop
+BNET_DirectConnect	proc
+
+exeAddr 4BAB8Fh
+patch165_begin::
+	jmp		localIPCheckEnd
+patch165_end::
+
+exeAddr 4BABCAh
+localIPCheckEnd:	nop
+
+BNET_DirectConnect	endp
 
 exeAddr	4BB720h
 DrawWindow:	nop
@@ -1660,6 +1670,14 @@ BNET_NFK_ReceiveData:	nop		; eax - mainform	TMainForm
 								; push- port		Integer
 								; push- dataSize	Integer
 
+exeAddr 5091ADh
+patch166_begin:
+	jmp		BNET_NFK_ReceiveData_localIPCheckEnd
+patch166_end:								
+
+exeAddr 5091DBh
+BNET_NFK_ReceiveData_localIPCheckEnd:	nop
+								
 exeAddr	50926Bh
 patch134_begin:
 	jmp		BNET_NFK_ReceiveData_PacketFilter
@@ -1763,6 +1781,14 @@ patch155_end:
 exeAddr	50EB64h
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex:	nop
 
+exeAddr 512CBAh
+patch168_begin:
+	jmp		BNET_NFK_ReceiveData_on_MMP_CL_OBJDESTROY_isPlasma
+patch168_end:
+
+exeAddr 512CE4h
+BNET_NFK_ReceiveData_on_MMP_CL_OBJDESTROY_isPlasma:	nop
+
 exeAddr 513B8Bh
 patch142_begin:
     jmp		on_MMP_PING_distribute
@@ -1827,6 +1853,15 @@ patch34_end::
 playerloop_break:
 onMMP_PING2	endp
 ENDIF
+
+exeAddr 513D75h
+patch167_begin:
+on_MMP_THROWPLAYER:
+	jmp 	on_MMP_THROWPLAYER_afterIPCheck
+patch167_end:
+
+exeAddr 513DAFh
+on_MMP_THROWPLAYER_afterIPCheck:
 
 exeAddr 515A83h
 patch160_begin:
@@ -4493,6 +4528,14 @@ ENDIF
 				dd		patch163_end - patch163_begin
 				dd		patch164_begin				; check for battle suit before applying damage while in lava (no damage with BS)
 				dd		patch164_end - patch164_begin
+				;dd		patch165_begin				; allow connect to local IPs
+				;dd		patch165_end - patch165_begin
+				;dd		patch166_begin				; don't filter packets from local IPs
+				;dd		patch166_end - patch166_begin
+				;dd		patch167_begin				; don't filter packets from local IPs
+				;dd		patch167_end - patch167_begin
+				dd		patch168_begin				; remove weapon if asked by server
+				dd		patch168_end - patch168_begin
 patchSize_end:
 
 end start
