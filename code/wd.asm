@@ -46,7 +46,7 @@ LeaveCriticalSection:       nop
 exeAddr	4026E0h
 GetMem:		nop
 exeAddr 4026EAh
-l4026EA:    nop  
+l4026EA:    nop
 exeAddr 4026EEh
 l4026EE:    nop
 exeAddr 4026F8h
@@ -73,7 +73,7 @@ PStrNCat:	nop
 exeAddr 402B28h
 PStrCpy:	nop
 exeAddr	402B44h
-PStrNCpy:	nop			;params: 
+PStrNCpy:	nop			;params:
 							;eax - destination:	shortstring
 							;edx - source:		shortstring
 							;cl - destSize:		byte
@@ -653,7 +653,7 @@ noDamage:
 	mov		ax, 22h
 	call	playsound
 patch164_end:
-	
+
 exeAddr 49CB38h
 IsWaterContentHEAD: nop
 
@@ -682,23 +682,23 @@ tempInt			EQU		<[ebp - 14h]>	; integer, size = 4
 	add		esp, -10h
 	push	esi
 	push	edi
-	
+
 	mov		esi, edx			; esi = Data
 	mov		PacketType, al
 	mov		PacketSize, ecx
-	
+
 	call	ismultip
 	cmp		al, 2
 	jnz		exit
-	
+
 	mov		byte ptr flagDir, 0
 	mov		byte ptr flagImageIndex, 0
-	
+
 	; if the flag has just been dropped, loop through players to clear 'flagcarrier' flag
 	mov		byte ptr playerFound, 0
 	cmp		byte ptr PacketType, MMP_CTF_EVENT_FLAGDROP
 	jnz		isGamestate
-	
+
 	mov		ax, [esi + 3]	; TMP_CTF_FlagDrop.DropperDXID
 	mov		edx, offset aLost
 	call	CTF_Event_Message
@@ -708,14 +708,14 @@ playersLoop:
 	mov		edi, dword ptr [g_players + eax * 4]
 	test	edi, edi
 	jz		playersLoop_cont
-	
+
 	mov		ax, [edi + 28Ch]	; TPlayer.DXID
 	cmp		ax, [esi + 3]		; TMP_CTF_FlagDrop.DropperDXID
 	jnz		playersLoop_cont
-	
+
 	mov		byte ptr playerFound, 1
 	mov		byte ptr [edi + 0FCh], 0	; TPlayer.flagcarrier
-	
+
 	; the player who dropped the flag is found, decide what color the flag was of from that player's team color
 	mov		al, [edi + 26h]		; TPlayer.team
 	mov		flagImageIndex, al
@@ -723,13 +723,13 @@ playersLoop:
 	mov		al, [edi + 0Ch]		; TPlayer.dir
 	and		al, 1
 	mov		flagDir, al
-	
+
 playersLoop_cont:
 	inc		dword ptr i
 	mov		eax, i
 	cmp		al, 7
 	jle		playersLoop
-	
+
 	cmp		byte ptr playerFound, 0
 	jnz		notGamestate
 	; flag dropper hasn't been found, try to extract info from the packet
@@ -737,8 +737,8 @@ playersLoop_cont:
 	jnz		flagError
 	mov		al, [esi + 15h]		; TMP_CTF_FlagDrop.imageindex
 	mov		dl, [esi + 16h]		; TMP_CTF_FlagDrop.dir
-	mov		byte ptr flagImageIndex, al	
-	mov		byte ptr flagDir, dl		
+	mov		byte ptr flagImageIndex, al
+	mov		byte ptr flagDir, dl
 	jmp		notGamestate
 flagError:
 	; old servers don't give us any data to decide the color of the flag, print error and disconnect
@@ -747,13 +747,13 @@ flagError:
 	mov		eax, offset lstr_disconnect
 	call	ApplyHCommand
 	jmp		exit
-	
+
 isGamestate:
 	; if the message is a part of gamestate, flag color is stored in DropperDXID value
 	mov		al, [esi + 3]		; TMP_CTF_FlagDrop.DropperDXID
 	mov		flagImageIndex, al
 	mov		byte ptr flagDir, 0	; TODO: random(1)
-	
+
 notGamestate:
 	mov		byte ptr objectInserted, 0
 	; loop through all objects, delete old flags of the same color and insert the new one
@@ -773,7 +773,7 @@ objectsLoop:
 	jnz		notAFlag
 	; flag of the same color has been found, mark it as dead
 	mov		byte ptr [edi + 4], 2
-	
+
 notAFlag:
 	; if the object is dead, and we haven't yet inserted the new flag, insert.
 	cmp		byte ptr objectInserted, 0
@@ -806,19 +806,19 @@ notAFlag:
 	; TMonoSprite.mass
 	xor		edx, edx
 	mov		[edi + 78h], edx		; TMonoSprite.mass low dword
-	mov		dword ptr [edi + 7Ch], 40140000h	; TMonoSprite.mass high dword. 0x4014000000000000 is double 5.0 
+	mov		dword ptr [edi + 7Ch], 40140000h	; TMonoSprite.mass high dword. 0x4014000000000000 is double 5.0
 	; TMonoSprite.weapon
 	mov		byte ptr [edi + 0Ah], 0			; TMonoSprite.weapon
 	; TMonoSprite.health
 	mov		word ptr [edi + 16h], 3500
-	
+
 	; TMonoSprite.imageindex
 	mov		al, flagImageIndex
 	mov		[edi + 0Dh], al		; TMonoSprite.imageindex
 	; TMonoSprite.dir
 	mov		dl, flagDir
 	mov		[edi + 0Eh], dl		; TMonoSprite.dir
-	
+
 	; if the flag was dropped (message is not gamestate), put DropperDXID into fangle field
 	cmp		byte ptr PacketType, MMP_CTF_EVENT_FLAGDROP
 	jnz		@F
@@ -837,7 +837,7 @@ notAFlag:
 	wait
 	; TMonoSprite.clippixel
 	mov		word ptr [edi + 6], 4	; TMonoSprite.clippixel
-	
+
 	cmp		byte ptr MATCH_DRECORD, 0
 	jnz		exit
 	mov		eax, edi
@@ -935,7 +935,7 @@ no_overflow:
 exit:
 	mov		esp, ebp
 	pop		ebp
-	retn	
+	retn
 CTF_SVNETWORK_FlagDrop	endp
 exeAddr 4AC630h
 patch157_end:
@@ -1005,10 +1005,10 @@ patch49_begin::
 	call	BNETSendData2IP_
 	jmp		afterPing
 patch49_end::
-	
+
 exeAddr	4B9D0Bh
 afterPing:	nop
-	
+
 exeAddr	4B9D68h
 exit:	nop
 NFKPlanet_PingLastServer	endp
@@ -1044,7 +1044,7 @@ tempStr			EQU		<[ebp - 20h]>	; LStr, size = 4
 	push	offset exceptionHandler
 	push	dword ptr fs:[eax]
 	mov		fs:[eax], esp
-	
+
 	mov		eax, NFKPlanet_ServersList
 	mov		ebx, [eax]
 	call	dword ptr [ebx + 14h]	; TStringList.GetCount
@@ -1057,7 +1057,7 @@ tempStr			EQU		<[ebp - 20h]>	; LStr, size = 4
 	jne		nextServer
 	cmp		MP_STEP, 4
 	jne		exit
-nextServer:	
+nextServer:
 	lea		ecx, serverData
 	mov		eax, NFKPlanet_ServersList
 	mov		edx, i
@@ -1098,7 +1098,7 @@ nextServer:
 	cmp		eax, 999
 	jbe		@F
 	mov		eax, 999
-@@:	
+@@:
 	mov		ping, eax
 	lea		ecx, tempStr
 	mov		eax, serverData
@@ -1120,8 +1120,8 @@ nextServer:
 	mov		edx, i
 	mov		ecx, tempStr
 	call	dword ptr [ebx + 20h]	; TStringList.Put
-	jmp		exit	
-continue:	
+	jmp		exit
+continue:
 	inc		dword ptr i
 	dec		dword ptr serversCount
 	jnz		nextServer
@@ -1133,16 +1133,16 @@ exit:
 	pop		ecx
 	mov		fs:[eax], edx
 	push	offset realExit
-cleanup:	
+cleanup:
 	lea		eax, tempStr
 	mov		edx, 3
 	call	LStrArrayClr
 	retn
-	
+
 exceptionHandler:
 	jmp		HandleFinally
 	jmp		cleanup
-	
+
 realExit:
 	pop		ebx
 	mov		esp, ebp
@@ -1385,7 +1385,7 @@ powerupsLoop:                   ;old address = 4ef29d
     push    dword ptr [esi+28h]
     mov     ax, 8
     call    playsound
-@@:       
+@@:
     ;4ef41d
     movzx   eax, byte ptr [esi+8]
     cmp     al, 4
@@ -1424,7 +1424,7 @@ powerupsLoop:                   ;old address = 4ef29d
     push    dword ptr [esi+28h]
     mov     ax, 3Ah
     call    playsound
-@@: 
+@@:
     ;4ef5b3
     xor     ecx, ecx
     cmp     [esi+6], ch
@@ -1455,7 +1455,7 @@ powerupsLoop:                   ;old address = 4ef29d
     jnz     powerupsLoopCont
     mov     eax, edi
     call    SpawnBubble
-powerupsLoopCont:    
+powerupsLoopCont:
     add     byte ptr [ebp-0Ch], 1
     cmp     byte ptr [ebp-0Ch], 8
     jnz     powerupsLoop
@@ -1486,7 +1486,7 @@ pingLoop:
     movzx   eax, word ptr [edi+356h]
     mov     [esp+1], ax                 ;ping
     movzx   eax, word ptr [edi+28Ch]
-    mov     [esp+3], ax                 ;dxid    
+    mov     [esp+3], ax                 ;dxid
     movzx   eax, byte ptr checksumDelay
     test    eax, eax
     jnz     @F
@@ -1495,7 +1495,7 @@ pingLoop:
     call    getChecksum
     mov     checksum, eax
     mov     checksumDelay, 5
-@@:    
+@@:
     dec     checksumDelay
     mov     eax, checksum
     mov     [esp+5], eax
@@ -1537,7 +1537,7 @@ afterPing:
     jmp     endOfSecondEvent
 new_notClient:
 	jmp		secondTickNotClient
-secondTick	endp 
+secondTick	endp
 
 align 8
 getChecksum proc
@@ -1546,12 +1546,12 @@ getChecksum proc
     push    edi
     mov     esi, 0FFFFh
     mov     edi, esi
-bigloop:    
+bigloop:
     mov     ecx, 168h
     cmp     edx, ecx
     cmovb   ecx, edx
     sub     edx, ecx
-@@:    
+@@:
     movzx   ebx, byte ptr [eax]
     add     esi, ebx
     inc     eax
@@ -1567,7 +1567,7 @@ bigloop:
     test    edx, edx
     jne     bigloop
     mov     eax, edi
-    movzx   edx, si  
+    movzx   edx, si
     shr     edi, 10h
     shr     esi, 10h
     add     eax, edi
@@ -1576,7 +1576,7 @@ bigloop:
     shl     eax, 10h
     pop     esi
     add     eax, edx
-    pop     ebx    
+    pop     ebx
     retn
 getChecksum endp
 patch31_end:
@@ -1589,10 +1589,10 @@ patch144_begin:
 	jnz		secondTickNotServer
 	jmp		new_secondTickServer
 patch144_end:
-	
+
 exeAddr	4EF812h
 secondTickTimeoutPlayers:	nop
-	
+
 exeAddr	4F094Bh
 secondTickNotServer:	nop
 
@@ -1626,7 +1626,7 @@ patch32_begin:
 patch32_end:
 
 exeAddr	4FEFB3h
-patch117_begin:	
+patch117_begin:
 	call	newPrintNFKEngineVersion
 patch117_end:
 
@@ -1673,11 +1673,11 @@ BNET_NFK_ReceiveData:	nop		; eax - mainform	TMainForm
 exeAddr 5091ADh
 patch166_begin:
 	jmp		BNET_NFK_ReceiveData_localIPCheckEnd
-patch166_end:								
+patch166_end:
 
 exeAddr 5091DBh
 BNET_NFK_ReceiveData_localIPCheckEnd:	nop
-								
+
 exeAddr	50926Bh
 patch134_begin:
 	jmp		BNET_NFK_ReceiveData_PacketFilter
@@ -1718,7 +1718,7 @@ patch39_end:
 exeAddr	509FF2h
 patch41_begin:
 	mov		edx, offset NFK_VERSION
-patch41_end:	
+patch41_end:
 
 exeAddr	50A15Ah
 patch154_begin:
@@ -1793,7 +1793,7 @@ exeAddr 513B8Bh
 patch142_begin:
     jmp		on_MMP_PING_distribute
 patch142_end:
-	
+
 exeAddr	513B99h
 patch33_begin:
 on_MMP_PING_do_distribute:
@@ -1834,7 +1834,7 @@ playerloop:
 	je		@F
 	mov		[esi + 12h], eax	;TPlayer.crc
 	call	crcChanged
-@@:	
+@@:
 	xor		eax, eax
 	mov		ax, [edi + 9]		;TPingPacker.gametime
 	sub		eax, gametime
@@ -1843,8 +1843,8 @@ playerloop:
 	mov		[esi + 16h], eax
 	call	deltaChanged
 	jmp		playerloop_break
-	
-exeAddr	513C30h	
+
+exeAddr	513C30h
 playerloop_cont:
 	inc		ecx
 	cmp		cl, 8
@@ -1925,7 +1925,7 @@ ALIAS_SaveAlias:	nop
 exeAddr	51E8A0h
 patch112_begin:
 	call	newApplyCommand_on_reconnect
-patch112_end:	
+patch112_end:
 
 exeAddr	51EC19h
 patch110_begin:
@@ -1971,7 +1971,7 @@ patch120_begin:
 patch120_end:
 
 exeAddr	5446C4h
-NFKPlanet_GetTok:	nop	
+NFKPlanet_GetTok:	nop
 
 ;------- NFKPlanet_ParseServerData fixes ---
 exeAddr	5447EFh
@@ -2026,9 +2026,9 @@ exeAddr	544C04h
 patch73_begin:
 	dd		0FFFFFFFFh
 	dd		3
-LNFK_VERSION	db	'076',0	
+LNFK_VERSION	db	'076',0
 patch73_end:
-	
+
 patch121_begin:
 exeAddr	544C10h
 aNFKPlanetTooOld	db		42, 'visit official website for new NFK update.', 0
@@ -2051,7 +2051,7 @@ NFKPlanet_RegisterServer	proc	; eax = hostname: LStr
                                     ; ecx = current players: Byte
                                     ; arg_4 = max players: Byte = [ebp + 0Ch]
                                     ; arg_0 = game type: Byte = [ebp + 8]
-;----------- local variables -------									
+;----------- local variables -------
 hostname	EQU	<[ebp - 4]>
 mapname		EQU	<[ebp - 8]>
 curPlayers	EQU	<[ebp - 0Ch]>
@@ -2080,7 +2080,7 @@ tempStr		EQU	<[ebp - 10h]>
 	cmp		byte ptr [esi + 24h], 0	; dunno what is `+ 24h', might be something like 'isConnected'
 	je		notConnected
 	mov		esi, [esi + 80h]		; 80h - offset to Socket object in `lobby'
-	
+
 	; sending greetings
 	push	offset aGreeting		; put '?R' in the stack
 	mov		eax, UDPDemon
@@ -2095,7 +2095,7 @@ tempStr		EQU	<[ebp - 10h]>
 	mov		edx, tempStr
 	mov		eax, esi
 	call	TCustomWinSocket_SendText
-	
+
 	; sending hostname
 	push	offset aHostname
 	push	hostname
@@ -2106,7 +2106,7 @@ tempStr		EQU	<[ebp - 10h]>
 	mov		edx, tempStr
 	mov		eax, esi
 	call	TCustomWinSocket_SendText
-	
+
 	; sending mapname
 	push	offset aMapname
 	push	mapname
@@ -2117,7 +2117,7 @@ tempStr		EQU	<[ebp - 10h]>
 	mov		edx, tempStr
 	mov		eax, esi
 	call	TCustomWinSocket_SendText
-	
+
 	; sending current players
 	push	offset aCurPlayers
 	xor		eax, eax
@@ -2132,7 +2132,7 @@ tempStr		EQU	<[ebp - 10h]>
 	mov		edx, tempStr
 	mov		eax, esi
 	call	TCustomWinSocket_SendText
-	
+
 	; sending max players
 	push	offset aMaxPlayers
 	xor		eax, eax
@@ -2147,7 +2147,7 @@ tempStr		EQU	<[ebp - 10h]>
 	mov		edx, tempStr
 	mov		eax, esi
 	call	TCustomWinSocket_SendText
-	
+
 	; sending game type
 	push	offset aGameType
 	xor		eax, eax
@@ -2162,7 +2162,7 @@ tempStr		EQU	<[ebp - 10h]>
 	mov		edx, tempStr
 	mov		eax, esi
 	call	TCustomWinSocket_SendText
-	
+
 notConnected:
 	; leave try block
 	xor		eax, eax
@@ -2179,7 +2179,7 @@ cleanup:
 	lea		eax, hostname
 	call	LStrClr					; remove ref from hostname
 	retn
-	
+
 exceptHandler:
 	jmp		HandleFinally
 	jmp		cleanup
@@ -2216,7 +2216,7 @@ aGameType	db		'?P', 0
 align 4
 			dd		0FFFFFFFFh
 			dd		02
-aCrLf		db		0Dh, 0Ah, 0			
+aCrLf		db		0Dh, 0Ah, 0
 NFKPlanet_RegisterServer	endp
 patch42_end:
 
@@ -2312,7 +2312,7 @@ exeAddr	555B00h
 starttime	dd	0
 
 exeAddr 555B48h
-objects	dd	0 
+objects	dd	0
 
 exeAddr 757BC8h
 gametime    dd  0
@@ -2329,7 +2329,7 @@ DLL_DMGReceived dd 	0		;params
 
 exeAddr 75D380h
 checksum    dd  0
-checksumDelay   db  0 
+checksumDelay   db  0
 OPT_CL_ALLOWDOWNLOAD	db	0
 OPT_SV_ALLOWDOWNLOAD	db	0
 downloadingMap	db	0
@@ -2417,7 +2417,7 @@ dwordToHex  proc    ;eax - pointer to buffer, edx - dword
     push    edi
     mov     edi, eax
     mov     ecx, 8
-hexloop:    
+hexloop:
     rol     edx, 4
     mov     al, dl
     and     al,0Fh
@@ -2496,7 +2496,7 @@ nosign:
 	push	0Ah
 	pop		ecx
 	mov		eax, edx
-@@:	
+@@:
 	xor		edx, edx
 	div		ecx
 	add		dl, '0'
@@ -2681,12 +2681,12 @@ DrawMenu_newOnConnect	proc
 	call	LStrClr
 	pop		eax
 	jmp		DrawMenu_onConnect_afterConcat
-	
+
 align 4
 			dd	0FFFFFFFFh
 			dd	1
-addrSep		db	':', 0	
-DrawMenu_newOnConnect	endp	
+addrSep		db	':', 0
+DrawMenu_newOnConnect	endp
 patch65_end:
 
 align 16
@@ -2710,12 +2710,12 @@ DrawMenu_newAskForInvite	proc
 	pop		eax
 	mov		eax, [ebp - 31Ch]
 	call	NFKPlanet_AskForInvite
-	retn	
+	retn
 align 4
 			dd	0FFFFFFFFh
 			dd	1
-addrSep2	db	':', 0	
-DrawMenu_newAskForInvite	endp	
+addrSep2	db	':', 0
+DrawMenu_newAskForInvite	endp
 patch71_end:
 
 align 16
@@ -2738,12 +2738,12 @@ BNET_NFK_ReceiveData_on_MMP_INVITE_connectEx	proc
 	pop		eax
 	mov		eax, [ebp - 32Ch]
 	call	BNET_DirectConnect
-	retn	
+	retn
 align 4
 			dd	0FFFFFFFFh
 			dd	1
-addrSep3	db	':', 0	
-BNET_NFK_ReceiveData_on_MMP_INVITE_connectEx	endp	
+addrSep3	db	':', 0
+BNET_NFK_ReceiveData_on_MMP_INVITE_connectEx	endp
 patch74_end:
 
 align 16
@@ -2767,7 +2767,7 @@ newApplyCommand_on_reconnect	proc
 	mov		eax, [ebp - 8ECh]
 	call	BNET_DirectConnect
 	retn
-	
+
 align 4
 			dd	0FFFFFFFFh
 			dd	1
@@ -2809,7 +2809,7 @@ newPrintNFKEngineVersion	proc
 	call	AddMessage
 	pop		eax
 	retn
-	
+
 align 4
 				dd		0FFFFFFFFh
 				dd		15
@@ -2846,7 +2846,7 @@ patch127_end:
 align 16
 patch133_begin:
 BNET_NFK_ReceiveData_PacketFilter	proc
-;----------- local variables -------									
+;----------- local variables -------
 	FromIP		EQU	<[ebp - 14Ah]>	; ShortString
 	data		EQU	<[ebp - 8]>		; PPChar
 	Port		EQU	<[ebp + 0Ch]>	; Dword
@@ -2876,7 +2876,7 @@ exit_ok:
 	jmp		BNET_NFK_ReceiveData_afterPacketFilter
 exit_notOk:
 	jmp		BNET_NFK_ReceiveData_default
-BNET_NFK_ReceiveData_PacketFilter	endp	
+BNET_NFK_ReceiveData_PacketFilter	endp
 patch133_end:
 
 align 16
@@ -2902,7 +2902,7 @@ new_entryPoint:
 	push	1
 	push	eax
 	call	esi
-@@:	
+@@:
 	;--- init new console variables
 	; cl_allowdownload and sv_allowdownload are 1 by default
 	mov		OPT_CL_ALLOWDOWNLOAD, 1
@@ -2911,7 +2911,7 @@ new_entryPoint:
 	push    ebp
     mov     ebp, esp
     add     esp, 0FFFFFFF4h
-    jmp     old_entryPointCont 
+    jmp     old_entryPointCont
 ;----------- datas ------------
 align 4
 new_entryPointLibName	db	'kernel32.dll', 0
@@ -2929,7 +2929,7 @@ new_BNET_OnDataReceived	proc
 	address	EQU	<[ebp + 0Ch]>	; LStr
 	; eax = edx = this (TNMUDP)
 	; ecx = result of recvfrom
-;----------- local variables -------									
+;----------- local variables -------
 	i		EQU	<[ebp - 4]>	; integer
 	data	EQU	<[ebp - 24h]>	; char[32]
 	count	EQU	<[ebp - 28h]>	; integer
@@ -2953,7 +2953,7 @@ isError:
 	mov		edx, address
 	mov		ecx, 0Fh
 	call	LStrToString
-	
+
 	; check spectators
 	mov		eax, SpectatorList
 	mov		eax, [eax + 8]	; TList.Count
@@ -2993,8 +2993,8 @@ nextSpectator:
 	mov		i, edx
 	cmp		edx, count
 	jl		spectatorsLoop
-noSpectators:	
-	
+noSpectators:
+
 exit:
 	pop		esi
 	mov		esp, ebp
@@ -3104,7 +3104,7 @@ nextSpectator:
 	jl		spectatorsLoop
 exit:
 	pop		eax					; remove spectators count
-	jmp		on_MMP_PING_no_distribute	
+	jmp		on_MMP_PING_no_distribute
 on_MMP_PING_distribute	endp
 patch141_end:
 
@@ -3136,7 +3136,7 @@ spectatorsLoop:					; edx must contain index at this point
 	cmp		dx, SPECTATOR_TIMEOUT
 	jl		nextSpectator
 	; spectator timeouted
-	
+
 	; say it
 	; reserve buffer for shortstring[64] (68 bytes aligned) and LStr conversion buffer (4 bytes)
 	; so we will have shortstring at [esp] and LString at [esp + 44h]
@@ -3163,7 +3163,7 @@ spectatorsLoop:					; edx must contain index at this point
 	; cleanup
 	lea		eax, [esp + 44h]
 	call	LStrClr
-	
+
 	; Send MMP_SPECTATORDISCONNECT
 	; we will reuse allocated 48h bytes for MMP_SPECTATORDISCONNECT message
 	mov		byte ptr [esp], MMP_SPECTATORDISCONNECT
@@ -3190,7 +3190,7 @@ nextSpectator:
 	cmp		edx, [esp]
 	jnz		spectatorsLoop
 	pop		ecx					; remove Count from stack
-noSpectators:	
+noSpectators:
 	jmp		secondTickTimeoutPlayers
 new_secondTickServer	endp
 patch143_end:
@@ -3202,7 +3202,7 @@ align 16
 ; edx - PChar: pointer to the parameter value
 ; ecx - LStr: input value
 ; stack parameter 1 - Char: default value
-applyCommand_process_boolean	proc	
+applyCommand_process_boolean	proc
 ;----------- local variables -------
 	defaultValue	EQU		<[ebp + 8]>		; Char
 	_name			EQU		<[ebp - 4]>		; LStr
@@ -3218,7 +3218,7 @@ applyCommand_process_boolean	proc
 	; check the presense of actual input
 	test	ecx, ecx
 	jnz		handle_input
-	
+
 	; there were none, show current value then
 	lea		eax, temp1
 	mov		edx, offset applyCommand_boolean_show
@@ -3231,7 +3231,7 @@ applyCommand_process_boolean	proc
 	; put default value to "show" string
 	mov		dl, defaultValue
 	add		[eax + 22], dl
-	
+
 	; build a string '"<name>" is "<current value>". Default is "<default value>". Possible range 0-1.'
 	push	offset lstrpart_doublequote
 	mov		edx, _name
@@ -3244,7 +3244,7 @@ applyCommand_process_boolean	proc
 	mov		eax, temp1
 	call	AddMessage
 	jmp		exit
-	
+
 handle_input:
 	; check input length - must be 1
 	mov		eax, [ecx - 4]
@@ -3272,7 +3272,7 @@ handle_input:
 	mov		eax, temp1
 	call	AddMessage
 	jmp		exit
-	
+
 bad_input:
 	; build a string 'invalid value "<input value>"'
 	lea		eax, temp1
@@ -3317,7 +3317,7 @@ applyCommand_ext	proc
 	mov		ecx, par1
 	call	applyCommand_process_boolean
 	jmp		applyCommand_exit
-	
+
 check_sv_allowdownload:
 	; check sv_allowdownload
 	mov		eax, par0
@@ -3373,7 +3373,7 @@ SaveCFG_save_number	proc
 	mov		eax, esp
 	call	LStrClr
 	pop		ecx
-	retn	
+	retn
 SaveCFG_save_number	endp
 
 align 16
@@ -3390,7 +3390,7 @@ SaveCFG_ext	proc
 	mov		edx, offset lstr_sv_allowdownload
 	mov		ecx, ts
 	call	SaveCFG_save_number
-	retn	
+	retn
 ;----------- datas -----------------
 align 4
 dd	0FFFFFFFFh
@@ -3605,7 +3605,7 @@ exeAddr 785030h
     jmp     newNewAnsiString    ;jump from .00403D10 (0 nops ahead)
 exeAddr 785038h
     jmp     newLStrFromPCharLen ;jump from .00403D34 (0 nops ahead)
-    
+
 align   10h
 newGetMem   proc
     push    eax     ;save requested amount of memory
@@ -3639,14 +3639,14 @@ newGetMem   proc
     jnz     @F
     mov     retAddr, ecx
 @@:
-    mov     nestingCount, ecx    
+    mov     nestingCount, ecx
 
     push    offset chainCriticalSection
     call    LeaveCriticalSection
-    
+
     pop     eax
     add     esp, 4
-    retn    
+    retn
 newGetMem   endp
 
 oldGetMem   proc
@@ -3670,7 +3670,7 @@ newFreeMem  proc
     pop     edx
     call    oldFreeMem
     retn
-newFreeMem  endp    
+newFreeMem  endp
 
 oldFreeMem  proc
     test    eax, eax
@@ -3692,11 +3692,11 @@ newReallocMem   proc
     call    deleteMemRecord
     mov     eax, dword ptr [esp+4]
     mov     edx, dword ptr [esp]
-nofree:    
+nofree:
     test    edx, edx
     jz      @F
     add     edx, 8
-@@:    
+@@:
     call    oldReallocMem
     pop     edx
     pop     ecx
@@ -3708,7 +3708,7 @@ nofree:
     push    ecx
     push    edx
     push    offset chainCriticalSection
-    call    EnterCriticalSection    
+    call    EnterCriticalSection
     pop     edx
     pop     ecx
 
@@ -3720,7 +3720,7 @@ nofree:
     jnz     @F
     mov     ecx, dword ptr [esp+4]
     mov     retAddr, ecx
-@@:    
+@@:
     inc     nestingCount
 
     mov     ecx, retAddr
@@ -3732,7 +3732,7 @@ nofree:
     dec     ecx
     jnz     @F
     mov     retAddr, ecx
-@@: 
+@@:
     mov     nestingCount, ecx
 
     push    offset chainCriticalSection
@@ -3740,15 +3740,15 @@ nofree:
 
     pop     eax
 noalloc:
-    retn    
+    retn
 newReallocMem   endp
 
-   
+
 oldReallocMem   proc    ;eax - pointer to a memory, edx - new requested size
     mov     ecx, dword ptr [eax]
     test    ecx, ecx
     jz      l402748
-    jmp     l402716    
+    jmp     l402716
 oldReallocMem   endp
 
 init    proc
@@ -3763,7 +3763,7 @@ init    proc
     push    ebp
     mov     ebp, esp
     add     esp, 0FFFFFFF4h
-    jmp     l5480AA    
+    jmp     l5480AA
 init    endp
 
 newHalt proc
@@ -3786,7 +3786,7 @@ onTimer proc
     mov     timestamp, edx
     call    saveToDisk
     call    cleanChain
-exit:    
+exit:
     pop     edx
     pop     eax
     push    ebp
@@ -3805,10 +3805,10 @@ newNewAnsiString proc
     jnz     @F
     mov     ecx, dword ptr [esp+4]
     mov     retAddr, ecx
-@@:    
+@@:
     inc     eax
     mov     nestingCount, eax
-    
+
     pop     eax
     call    oldNewAnsiString
     push    eax
@@ -3817,9 +3817,9 @@ newNewAnsiString proc
     dec     eax
     jnz     @F
     mov     retAddr, eax
-@@:    
+@@:
     mov     nestingCount, eax
-    
+
     push    offset chainCriticalSection
     call    LeaveCriticalSection
     pop     eax
@@ -3845,7 +3845,7 @@ newLStrFromPCharLen proc
     jnz     @F
     mov     ecx, dword ptr [esp+0Ch]
     mov     retAddr, ecx
-@@:    
+@@:
     inc     eax
     mov     nestingCount, eax
 
@@ -3859,9 +3859,9 @@ newLStrFromPCharLen proc
     dec     eax
     jnz     @F
     mov     retAddr, eax
-@@:    
+@@:
     mov     nestingCount, eax
-    
+
     push    offset chainCriticalSection
     call    LeaveCriticalSection
     pop     eax
@@ -3888,7 +3888,7 @@ allocBlock  proc
     pop     eax
     pop     edi
     retn
-allocBlock  endp    
+allocBlock  endp
 
 addMemRecord    proc    ;edx - size
     push    esi
@@ -3898,7 +3898,7 @@ addMemRecord    proc    ;edx - size
     mov     edi, edx
 
     mov     edx, offset allocChain
-moveToNewBlock:     
+moveToNewBlock:
     mov     eax, dword ptr [edx]
     test    eax, eax
     jnz     @F
@@ -3914,15 +3914,15 @@ blockLoop:
     cmp     eax, esi
     jz      found
     test    eax, eax
-    jz      notfound    
+    jz      notfound
     add     edx, 10h
     dec     ecx
     jnz     blockLoop
-    jmp     moveToNewBlock    
+    jmp     moveToNewBlock
 notfound:
-    mov     dword ptr [edx], esi    
-found:  
-;found a free place in chain, edx points there  
+    mov     dword ptr [edx], esi
+found:
+;found a free place in chain, edx points there
     add     dword ptr [edx+4], edi
     inc     dword ptr [edx+8]
     add     dword ptr [edx+0Ch], edi
@@ -3937,17 +3937,17 @@ deleteMemRecord proc    ;eax - caller address, edx - size
     push    edi
     mov     esi, eax
     mov     edi, edx
-    
+
     push    offset chainCriticalSection
     call    EnterCriticalSection
-    
+
     mov     edx, offset allocChain
 moveToNewBlock:
     mov     edx, dword ptr [edx]
     test    edx, edx
-    jz      err      
+    jz      err
     mov     ecx, 3FFh
-blockLoop: 
+blockLoop:
     mov     eax, dword ptr [edx]
     cmp     eax, esi
     jz      found
@@ -3969,25 +3969,25 @@ found:
     pop     esi
     retn
 err:
-    int     3    
+    int     3
 deleteMemRecord endp
 
 cleanChain  proc
     push    offset chainCriticalSection
     call    EnterCriticalSection
-    
+
     mov     edx, offset allocChain
 moveToNewBlock:
     mov     edx, dword ptr [edx]
     test    edx, edx
     jz      exit
     mov     ecx, 3FFh
-blockLoop:    
+blockLoop:
     mov     eax, dword ptr [edx]
     test    eax, eax
     jz      exit
-    mov     dword ptr [edx+4], 0    
-    mov     dword ptr [edx+8], 0 
+    mov     dword ptr [edx+4], 0
+    mov     dword ptr [edx+8], 0
     lea     edx, [edx+10h]
     dec     ecx
     jz      moveToNewBlock
@@ -3996,7 +3996,7 @@ exit:
 
     push    offset chainCriticalSection
     call    LeaveCriticalSection
-    retn    
+    retn
 cleanChain  endp
 
 dwordToHex  proc    ;eax - pointer to buffer, edx - dword
@@ -4008,9 +4008,9 @@ dwordToHex  proc    ;eax - pointer to buffer, edx - dword
     dec     edi
     stosb
     neg     edx
-nosign:    
+nosign:
     mov     ecx, 8
-hexloop:    
+hexloop:
     rol     edx, 4
     mov     al, dl
     and     al,0Fh
@@ -4032,7 +4032,7 @@ dwordToDec  proc    ;eax - dword, edx - pointer to buffer
     mov     byte ptr [edx], '0'
     lea     eax, [edx+1]
     retn
-nozero:    
+nozero:
     push    esi
     push    edi
     mov     edi, edx
@@ -4040,13 +4040,13 @@ nozero:
     mov     byte ptr [edi], '-'
     inc     edi
     neg     eax
-nosign:    
+nosign:
     mov     ecx, 0Ah
     mov     esi, edi
-@@:    
+@@:
     test    eax, eax
     jz      exit
-    xor     edx, edx    
+    xor     edx, edx
     div     ecx
     add     dl, '0'
     mov     byte ptr [edi], dl
@@ -4062,7 +4062,7 @@ exit:
     mov     byte ptr [esi], cl
     inc     esi
     cmp     esi, edi
-    jb      @B    
+    jb      @B
 
     pop     edi
     pop     esi
@@ -4148,7 +4148,7 @@ moveToNewAllocBlock:
     dec     esi
     jz      moveToNewAllocBlock
     jmp     @B
-finishAllocBlock:        
+finishAllocBlock:
 
     push    offset chainCriticalSection
     call    LeaveCriticalSection
@@ -4160,7 +4160,7 @@ exit:
     pop     edi
     pop     esi
     pop     ebx
-    retn    
+    retn
 saveToDisk  endp
 
 klear   proc
@@ -4184,7 +4184,7 @@ write   proc
     mov     word ptr [ecx], 0A0Dh
     lea     ecx, [ecx+2]
     sub     ecx, eax
-    
+
     add     esp, -4
     mov     edx, esp
     push    0
@@ -4216,10 +4216,10 @@ patchSize_begin dd      patch5_begin				; 6 players fix
                 dd      patch5_end - patch5_begin
 IFDEF _DEDIC
 				dd      patch3_begin				; dedik server autocreate
-                dd      patch3_end - patch3_begin			
+                dd      patch3_end - patch3_begin
                 dd      patch4_begin				; dedik server autocreate
                 dd      patch4_end - patch4_begin
-ENDIF				
+ENDIF
                 dd      patch14_begin				; 6 players fix
                 dd      patch14_end - patch14_begin
                 dd      patch15_begin				; 6 players fix
@@ -4251,21 +4251,21 @@ IFDEF	_DEDIK
                 dd      patch29_end - patch29_begin
                 dd      patch30_begin				; sleeping pill
                 dd      patch30_end - patch30_begin
-ENDIF				
+ENDIF
 				dd		patch31_begin				; new pinger
 				dd		patch31_end - patch31_begin
 				dd		patch32_begin				; alt-tab fix
 				dd		patch32_end - patch32_begin
 				dd		patch33_begin				; new pinger
 				dd		patch33_end - patch33_begin
-IFDEF	_PINGER				
+IFDEF	_PINGER
 				dd		patch34_begin				; new pinger
-				dd		patch34_end - patch34_begin			
+				dd		patch34_end - patch34_begin
 				dd		patch35_begin				; new pinger
 				dd		patch35_end - patch35_begin
 				dd		patch36_begin				; new pinger
 				dd		patch36_end - patch36_begin
-ENDIF					
+ENDIF
 				dd		patch37_begin				; new planet adaptation
 				dd		patch37_end - patch37_begin
 				dd		patch38_begin				; new planer adaptation
@@ -4415,7 +4415,7 @@ IFDEF _DEDIC
 				dd		patch109_end - patch109_begin
 				dd		patch110_begin				; disable graphic for dedik
 				dd		patch110_end - patch110_begin
-ENDIF				
+ENDIF
 				dd		patch111_begin				; new planet adaptation
 				dd		patch111_end - patch111_begin
 				dd		patch112_begin				; new planet adaptation
@@ -4441,7 +4441,7 @@ ENDIF
 				dd		patch122_begin				; new planet adaptation
 				dd		patch122_end - patch122_begin
 				dd		patch123_begin				; new version at the bottom of main screen
-				dd		patch123_end - patch123_begin 
+				dd		patch123_end - patch123_begin
 				dd		patch124_begin				; new official website
 				dd		patch124_end - patch124_begin
 				dd		patch125_begin				; new birthday website
@@ -4463,7 +4463,7 @@ IFDEF _DEDIC
 				dd		patch131_end - patch131_begin
 				dd		patch132_begin				; dedik cursor visibility fix
 				dd		patch132_end - patch132_begin
-ENDIF				
+ENDIF
 				dd		patch133_begin				; new packet filter
 				dd		patch133_end - patch133_begin
 				dd		patch134_begin				; new packet filter
