@@ -2228,6 +2228,16 @@ patch28_begin:
 call    patch27_begin
 patch28_end:
 
+exeAddr 54631Ah
+patch170_begin:
+	nop 
+	nop 
+	nop 
+	nop 
+	nop 
+	nop
+patch170_end:
+
 exeAddr 546800h
 patch22_begin:
 call    patch21_begin
@@ -2241,6 +2251,29 @@ patch138_end:
 
 exeAddr	547054h
 old_BNET_OnDataReceived:	nop
+
+;========================================
+TParticle_Move	proc
+
+exeAddr 547954h
+patch169_begin::
+	cmp		OPT_R_MASSACRE, 0
+	jz		noBlood
+	fld		qword ptr [esi + 8]
+	add		esp, -4
+	fstp	dword ptr [esp]
+	wait
+	jmp		@F
+patch169_end::
+
+exeAddr 54796Fh
+@@:
+	
+exeAddr 5479AAh
+noBlood:
+
+TParticle_Move	endp
+;========================================
 
 exeAddr	5480A4h
 patch135_begin:
@@ -2271,6 +2304,9 @@ ENABLE_PROTECT	db	0
 
 exeAddr	54BF3Ch
 SPECTATOR_TIMEOUT	dw	7000
+
+exeAddr 54C1E4h
+OPT_R_MASSACRE	db	0
 
 exeAddr 54C274h
 pingsend_tick   dd  0
@@ -4536,6 +4572,10 @@ ENDIF
 				;dd		patch167_end - patch167_begin
 				dd		patch168_begin				; remove weapon if asked by server
 				dd		patch168_end - patch168_begin
+				dd		patch169_begin				; don't add blood splashes if r_massacre == 0
+				dd		patch169_end - patch169_begin
+				dd		patch170_begin				; don't turn off blood splashes if r_massacre == 0
+				dd		patch170_end - patch170_begin
 patchSize_end:
 
 end start
