@@ -718,6 +718,7 @@ playersLoop:
 
 	; the player who dropped the flag is found, decide what color the flag was of from that player's team color
 	mov		al, [edi + 26h]		; TPlayer.team
+	xor		al, 1
 	mov		flagImageIndex, al
 	; remember also the direction of the player
 	mov		al, [edi + 0Ch]		; TPlayer.dir
@@ -872,7 +873,7 @@ CTF_SAVEDEMO_FlagDrop:	nop
 exeAddr 4AC5A4h
 patch157_begin:
 ; slightly modified function CTF_SVNETWORK_FlagDrop. Size of the packet is increased
-; and now contains information about dropped flag color and direction
+; and now packet contains information about dropped flag color and direction
 CTF_SVNETWORK_FlagDrop	proc
 									; eax - sender: TMonoSprite
 ;------- locals --------------------
@@ -2230,11 +2231,11 @@ patch28_end:
 
 exeAddr 54631Ah
 patch170_begin:
-	nop 
-	nop 
-	nop 
-	nop 
-	nop 
+	nop
+	nop
+	nop
+	nop
+	nop
 	nop
 patch170_end:
 
@@ -2268,7 +2269,7 @@ patch169_end::
 
 exeAddr 54796Fh
 @@:
-	
+
 exeAddr 5479AAh
 noBlood:
 
