@@ -18,6 +18,7 @@ MMP_SPECTATORDISCONNECT		equ		38
 MMP_IAMQUIT	equ		75
 MMP_CTF_EVENT_FLAGDROP	equ	35h
 
+Gametype_CTF	equ	3
 Gametype_DOM	equ	7
 
 exeAddr MACRO va
@@ -59,6 +60,8 @@ exeAddr 402716h
 l402716:    nop
 exeAddr 402748h
 l402748:    nop
+exeAddr	40284Ch
+IOResult:	nop
 exeAddr	402864h
 Move:		nop			;params
 							;eax - source
@@ -131,12 +134,22 @@ LStrCmp:	nop
 exeAddr	404080h
 LStrAddRef:	nop
 
+exeAddr	405C8Eh
+_ASSIGN:	nop
+
 exeAddr	405D30h
 BlockRead:	nop
+
+exeAddr 405DF8h
+_CLOSE:		nop
 
 exeAddr	40602Ch
 FileSize:	nop			;params:
 							;eax - FileRecord
+
+exeAddr	4061BDh
+_RESETFILE:	nop							
+					
 exeAddr	4061F4h
 Seek:		nop			;params
 							;eax - FileRecord
@@ -165,6 +178,9 @@ IntToStr:	nop			;params:
 
 exeAddr	408B2Ch
 StrToInt:	nop
+
+exeAddr 408EACh
+ExtractFileName:	nop
 
 exeAddr 410A04h
 l410A04:    nop
@@ -1721,10 +1737,12 @@ patch41_begin:
 	mov		edx, offset NFK_VERSION
 patch41_end:
 
+IFDEF PATCH154
 exeAddr	50A15Ah
 patch154_begin:
 	call	BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex
 patch154_end:
+ENDIF
 
 exeAddr	50A3E4h
 patch70_begin:
@@ -1774,10 +1792,12 @@ nop
 patch15_end:
 l50CB06:    nop
 
+IFDEF PATCH155
 exeAddr	50EB58h
 patch155_begin:
 	call	BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex
 patch155_end:
+ENDIF
 
 exeAddr	50EB64h
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex:	nop
@@ -1940,6 +1960,14 @@ exeAddr	51ED33h
 patch118_begin:
 	call	newPrintNFKEngineVersion
 patch118_end:
+
+exeAddr	536BF9h
+patch173_begin:
+	jmp		ApplyCommand_onMap_ex
+patch173_end:
+
+exeAddr 536BFEh
+	ApplyCommand_beginChangeMap:	nop
 
 exeAddr	53A359h
 patch145_begin:
@@ -2327,6 +2355,9 @@ MATCH_GAMETYPE		db	0
 exeAddr 54CDA0h
 STIME   dd  0
 
+exeAddr 54E046h
+byte_54E046		db	0
+
 exeAddr	552B60h
 UDPDemon	dd	0
 
@@ -2350,6 +2381,9 @@ starttime	dd	0
 
 exeAddr 555B48h
 objects	dd	0
+
+exeAddr	757BB4h
+loadmapsearch_lastfile	dd	0
 
 exeAddr 757BC8h
 gametime    dd  0
@@ -3558,6 +3592,7 @@ lstrpart_out_of		db	' out of ', 0
 DrawMenu_ex	endp
 patch151_end:
 
+IFDEF PATCH153
 align 16
 patch153_begin:
 BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex	proc
@@ -3574,7 +3609,9 @@ exit:
 	retn
 BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex	endp
 patch153_end:
+ENDIF
 
+IFDEF PATCH156
 align 16
 patch156_begin:
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	proc
@@ -3597,6 +3634,7 @@ BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	proc
 	jmp		BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	endp
 patch156_end:
+ENDIF
 
 align 16
 patch163_begin:
@@ -3622,6 +3660,210 @@ exit:
 	retn
 PlayBattleSuitSound	endp
 patch163_end:
+
+align 16
+patch171_begin:
+CHECKMAP_SUCCESS	EQU		<1>
+CHECKMAP_DOMREADY	EQU		<2>
+CHECKMAP_CTFREADY	EQU		<4>
+
+CheckMap	proc	; eax: LStr - filename
+					; returns a bitfield of CHECKMAP_* flags
+;----------- local variables -------
+	filename	EQU		<[ebp - 4]>		; LStr
+	file		EQU		<[ebp - 150h]>	; File, size = 0x14C
+	header		EQU		<[ebp - 1ECh]>	; byte[0x9C]
+	buf			EQU		<[ebp - 2ECh]>	; byte[0x100]
+	mapStats	EQU		<[ebp - 2FCh]>	; word[8] - count of blocks with indexes (i - 35)
+										; 0 - red respawn points; 1 - blue respawn points; 5 - red flags; 6 - blue flags
+										; 7 - dom points
+	temp		EQU		<[ebp - 300h]>	; integer, used to store amount of bytes read
+	result		EQU		<[ebp - 304h]>
+;----------- consts ----------------
+	MAPSTATS_REDRESP	EQU	<0>
+	MAPSTATS_BLUERESP	EQU	<1>
+	MAPSTATS_REDFLAG	EQU	<5>
+	MAPSTATS_BLUEFLAG	EQU	<6>
+	MAPSTATS_DOMPOINT	EQU	<7>
+;-----------------------------------
+	push	ebp
+	mov		ebp, esp
+	push	eax			; init filename
+	push	0			; init file
+	sub		esp, 2F8h	; allocate the rest of local variables
+	push	0			; init result value. 0 is an error
+	push	esi
+	push	edi
+	call	LStrAddRef
+	mov		edx, filename
+	lea		eax, file
+	call	_ASSIGN
+	mov		byte_54E046, 0
+	xor		edx, edx
+	mov		dl, 1
+	lea		eax, file
+	call	_RESETFILE
+	call	IOResult
+	test	eax, eax
+	jz		openSuccess
+	lea		eax, file
+	call	_CLOSE
+	jmp		exit
+openSuccess:
+	lea		eax, temp
+	push	eax
+	lea		edx, header
+	mov		ecx, 9Ah
+	lea		eax, file
+	call	BlockRead
+	cmp		byte ptr temp, 9Ah
+	jz		@F
+	; if number of bytes read is not 9Ah, return 0, since it indicates that the file is less than 9Ah bytes long, and could not possibly be a map
+	lea		eax, file
+	call	_CLOSE
+	jmp		exit
+@@:
+	; esi - Y dimension, edi - X dimension
+	movzx	esi, byte ptr [header + 94h]	; Header.MapSizeX
+	movzx	edi, byte ptr [header + 93h]	; Header.MapSizeY
+	; reset stats
+	mov		ecx, 08h
+	xor		eax, eax
+@@:	dec		ecx
+	mov		[mapStats + ecx * 2], ax
+	jnz		@B
+	
+	; reading a row of bricks
+readLoop:
+	lea		eax, temp
+	push	eax
+	lea		edx, buf
+	mov		ecx, esi
+	lea		eax, file
+	call	BlockRead
+	mov		ecx, temp
+	cmp		esi, ecx
+	jz		@F
+	; couldn't read a row of bricks, return 0
+	lea		eax, file
+	call	_CLOSE
+	jmp		exit
+@@:
+	; scanning a row of bricks
+	xor		eax, eax
+scanLoop:
+	mov		al, byte ptr [buf + ecx]
+	sub		al, 35
+	jb		continueScan
+	cmp		al, 0Eh
+	ja		continueScan
+	inc		word ptr [mapStats + eax * 2]
+continueScan:
+	dec		ecx
+	jnz		scanLoop
+	; read next row	
+	dec		edi
+	jnz		readLoop
+	
+	; everything is read, close the file, check map stats and return flags
+	lea		eax, file
+	call	_CLOSE
+	xor		eax, eax
+	; map was read successfully, set success flag
+	or		eax, CHECKMAP_SUCCESS
+	; dom maps need exactly 3 dom points
+	cmp		word ptr [mapStats + MAPSTATS_DOMPOINT*2], 3
+	jnz		@F
+	or		eax, CHECKMAP_DOMREADY
+@@:
+	; ctf maps need 1 red flag, 1 blue flag and at least one red and blue respawn point
+	cmp		word ptr [mapStats + MAPSTATS_REDFLAG*2], 1
+	jnz		@F
+	cmp		word ptr [mapStats + MAPSTATS_BLUEFLAG*2], 1
+	jnz		@F
+	cmp		word ptr [mapStats + MAPSTATS_REDRESP*2], 0
+	jz		@F
+	cmp		word ptr [mapStats + MAPSTATS_BLUERESP*2], 0
+	jz		@F
+	or		eax, CHECKMAP_CTFREADY
+@@:
+	mov		result, eax
+exit:
+	lea		eax, filename
+	call	LStrClr
+	pop		edi
+	pop		esi
+	pop		eax		; pop result into eax
+	mov		esp, ebp
+	pop		ebp
+	retn
+CheckMap	endp
+patch171_end:
+
+align 16
+patch172_begin:
+ApplyCommand_onMap_ex	proc
+	mov		eax, loadmapsearch_lastfile
+	call	CheckMap
+	test	eax, eax
+	jnz		@F
+	; print 'invalid map'
+	mov		eax, offset lstrInvalidMap
+printInvalidMap:	; printInvalidMap subprocedure. eax: LStr - message
+					;  prints a "<map name><message>", restores MATCH_GAMETYPE 
+					;  to its previous value and exits the ApplyCommand function
+					
+	push	eax		; save message
+	push	0		; init temporary LStr variable
+	mov		eax, loadmapsearch_lastfile
+	mov		edx, esp
+	call	ExtractFileName
+	mov		eax, esp
+	mov		edx, [esp + 4]	; message
+	call	LStrCat
+	mov		eax, [esp]
+	call	AddMessage
+	mov		eax, esp
+	call	LStrClr
+	pop		eax
+	pop		eax
+	mov		al, [ebp - 31]	; old MATCH_GAMETYPE value
+	mov		MATCH_GAMETYPE, al
+	jmp		applyCommand_exit
+@@:
+	cmp		byte ptr MATCH_GAMETYPE, Gametype_CTF
+	jnz		@F
+	test	eax, CHECKMAP_CTFREADY
+	jnz		mapOk
+	; print 'invalid CTF map'
+	mov		eax, offset lstrInvalidCTFMap
+	jmp		printInvalidMap
+@@:
+	cmp		byte ptr MATCH_GAMETYPE, Gametype_DOM
+	jnz		mapOk
+	test	eax, CHECKMAP_DOMREADY
+	jnz		mapOk
+	; print 'invalid DOM map'
+	mov		eax, offset lstrInvalidDOMMap
+	jmp		printInvalidMap
+mapOk:
+	call	ismultip
+	jmp		ApplyCommand_beginChangeMap
+
+align 4
+	dd		0FFFFFFFFh
+	dd		012h
+	lstrInvalidMap	db		' is not a map file', 00
+align 4
+	dd		0FFFFFFFFh
+	dd		11h
+	lstrInvalidCTFMap	db		' is not a CTF map', 0
+align 4
+	dd		0FFFFFFFFh
+	dd		11h
+	lstrInvalidDOMMap	db		' is not a DOM map', 0
+ApplyCommand_onMap_ex	endp
+patch172_end:
 
 IFDEF _MEMDEBUG
 
@@ -4577,6 +4819,12 @@ ENDIF
 				dd		patch169_end - patch169_begin
 				dd		patch170_begin				; don't turn off blood splashes if r_massacre == 0
 				dd		patch170_end - patch170_begin
+				dd		patch171_begin				; CheckMap function
+				dd		patch171_end - patch171_begin
+				dd		patch172_begin				; ApplyCommand_onMap extension
+				dd		patch172_end - patch172_begin
+				dd		patch173_begin				; jump to an ApplyCommand_onMap extension
+				dd		patch173_end - patch173_begin
 patchSize_end:
 
 end start
