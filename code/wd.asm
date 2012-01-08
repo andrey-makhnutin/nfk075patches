@@ -963,8 +963,34 @@ CTF_Event_Message:	nop
 exeAddr 4B2014h
 playsound:  nop
 
+exeAddr 4B31FCh
+isGameTeamplay:	nop
+
 exeAddr 4B4B9Ch
 lstr_disconnect	db 'disconnect', 0
+
+exeAddr 4B507Ah
+patch175_begin:
+	xor		eax, eax
+	mov		gametic, eax
+	mov		gametime, eax
+	mov		inmenu, al
+	mov		gx, eax
+	mov		gy, eax
+	mov		byte ptr map_info, 8
+	mov		SYS_TEAMSELECT, al
+	cmp		OPT_NETSPECTATOR, al
+	jnz		@F
+	call	isGameTeamplay
+	test	al, al
+	jz		@F
+	mov		SYS_TEAMSELECT, 30
+	nop
+	nop
+	nop
+	nop
+@@:
+patch175_end:
 
 exeAddr	4B516Ah
 patch43_begin:
@@ -2342,6 +2368,9 @@ ENABLE_PROTECT	db	0
 exeAddr	54BF3Ch
 SPECTATOR_TIMEOUT	dw	7000
 
+exeAddr	54C178h
+SYS_TEAMSELECT	db	0
+
 exeAddr 54C1E4h
 OPT_R_MASSACRE	db	0
 
@@ -2378,11 +2407,16 @@ NFKPlanet_ServersList	dd	0
 exeAddr	552B8Dh
 MP_STEP	db	0
 
+exeAddr 5547CCh
+inmenu	db	0
+
 exeAddr 554CD4h
 mainform    dd  0
 
 exeAddr	554CE4h
 mapcancel	dd	0
+gx			dd	0
+gy			dd	0
 
 exeAddr	555B00h
 starttime	dd	0
@@ -2396,6 +2430,9 @@ loadmapsearch_lastfile	dd	0
 exeAddr 757BC8h
 gametime    dd  0
 gametic     dd  0
+
+exeAddr 757D4Ch
+map_info	db	0
 
 exeAddr	75CC98h
 SpectatorList	dd	0
@@ -4835,6 +4872,8 @@ ENDIF
 				dd		patch173_end - patch173_begin
 				dd		patch174_begin				; ignore alt key in MainForm_FormKeyDown
 				dd		patch174_end - patch174_begin
+				dd		patch175_begin
+				dd		patch175_end - patch175_begin
 patchSize_end:
 
 end start
