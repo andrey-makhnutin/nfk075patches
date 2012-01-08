@@ -1993,6 +1993,14 @@ lstrpart_dq_is_set_to_dq	db '" is set to "', 0
 exeAddr 542134h
 ApplyHCommand:	nop
 
+exeAddr 5428E8h
+patch174_begin:
+	jmp		MainForm_FormKeyDown_ignoreAlt
+patch174_end:
+
+exeAddr	5428F1h
+MainForm_FormKeyDown_ignoreAlt:	nop
+
 exeAddr	543F30h
 patch120_begin:
 	call	newGetSystemVariable_getNfkversion
@@ -4825,6 +4833,8 @@ ENDIF
 				dd		patch172_end - patch172_begin
 				dd		patch173_begin				; jump to an ApplyCommand_onMap extension
 				dd		patch173_end - patch173_begin
+				dd		patch174_begin				; ignore alt key in MainForm_FormKeyDown
+				dd		patch174_end - patch174_begin
 patchSize_end:
 
 end start
