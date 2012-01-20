@@ -2,7 +2,7 @@ build.bat	Used to build and apply patches to Clean NFK Executable
 build_ded.bat	Used to build and apply patches to Dedicated NFK Executable
 
 Clean NFK Executable should reside in this folder and be named "nfk075a.exe"
-Patched NFK Executable will be built in a nfk075a.upd.exe file
+Patched NFK Executable will be built in a nfk077a.upd.exe file
 
 Dedicated NFK Executable should reside in this folder and be named "nfk075d.exe"
-Patched Dedicated NFK Executable will be built in a nfk075d.upd.exe file
+Patched Dedicated NFK Executable will be built in a nfk077d.upd.exe file

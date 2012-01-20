@@ -31,7 +31,7 @@ goto TheEnd
 :patch
 %patcher% nfk075a.exe wd.exe
 %patcher% ENGINEa.dat wd.exe
-move nfk075a.upd.exe nfk076a.upd.exe
+move nfk075a.upd.exe nfk077a.upd.exe
 
 :TheEnd
 

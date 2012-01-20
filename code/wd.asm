@@ -1331,7 +1331,7 @@ patch123_begin:
 	db	'Need For Kill (c) 2001-2011. Created by 3d[Power]. All rights preserved.', 0, 0, 0, 0
 	dd	0FFFFFFFFh
 	dd	40h
-	db	'http://pff.clan.su                   e-mail: the.boobl@gmail.com', 0
+	db	'http://needforkill.ru                e-mail: the.boobl@gmail.com', 0
 patch123_end:
 
 exeAddr	4CA878h
@@ -1341,7 +1341,7 @@ exeAddr	4CAD84h
 patch124_begin:
 	dd	0FFFFFFFFh
 	dd	49
-	db	'    visit the official NFK web site (pff.clan.su)', 0
+	db	' visit the official NFK web site (needforkill.ru)', 0
 patch124_end:
 
 exeAddr	4CB534h
@@ -1774,7 +1774,7 @@ patch52_end:
 
 exeAddr 509B49h
 patch39_begin:
-NFK_VERSION db 03,'076'
+NFK_VERSION db 03,'077'
 patch39_end:
 
 exeAddr	509FF2h
@@ -2108,7 +2108,7 @@ exeAddr	544C04h
 patch73_begin:
 	dd		0FFFFFFFFh
 	dd		3
-LNFK_VERSION	db	'076',0
+LNFK_VERSION	db	'077',0
 patch73_end:
 
 patch121_begin:
@@ -2952,8 +2952,8 @@ newPrintNFKEngineVersion	endp
 
 align 4
 			dd	0FFFFFFFFh
-			dd	18
-NFK_URL		db	'http://pff.clan.su', 0
+			dd	21
+NFK_URL		db	'http://needforkill.ru', 0
 patch116_end:
 
 align 16
