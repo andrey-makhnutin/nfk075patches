@@ -1679,6 +1679,14 @@ patch32_begin:
 	retn
 patch32_end:
 
+exeAddr 4FE9F7h
+patch135_begin:
+	jmp		new_formCreateBegin
+patch135_end:
+
+exeAddr 4FEA01h
+old_formCreateBegin:    nop
+
 exeAddr	4FEFB3h
 patch117_begin:
 	call	newPrintNFKEngineVersion
@@ -2349,13 +2357,6 @@ noBlood:
 TParticle_Move	endp
 ;========================================
 
-exeAddr	5480A4h
-patch135_begin:
-	jmp		new_entryPoint
-patch135_end:
-
-exeAddr 5480AAh
-old_entryPointCont:    nop
 
 exeAddr 54901Ch
 l54901C     dd  0
@@ -2405,6 +2406,9 @@ STIME   dd  0
 
 exeAddr 54E046h
 byte_54E046		db	0
+
+exeAddr 54E7C8h
+Application		dd	0
 
 exeAddr	552B60h
 UDPDemon	dd	0
@@ -3008,7 +3012,7 @@ patch133_end:
 
 align 16
 patch136_begin:
-new_entryPoint:
+new_formCreateBegin:
 	push	offset new_entryPointLibName
 	call	GetModuleHandleA
 	test	eax, eax
@@ -3034,11 +3038,10 @@ new_entryPoint:
 	; cl_allowdownload and sv_allowdownload are 1 by default
 	mov		OPT_CL_ALLOWDOWNLOAD, 1
 	mov		OPT_SV_ALLOWDOWNLOAD, 1
-	;--- old entry point code
-	push    ebp
-    mov     ebp, esp
-    add     esp, 0FFFFFFF4h
-    jmp     old_entryPointCont
+	;--- old formCreate code
+	lea		edx, [ebp - 38h]
+	mov		eax, Application
+    jmp     old_formCreateBegin
 ;----------- datas ------------
 align 4
 new_entryPointLibName	db	'kernel32.dll', 0
