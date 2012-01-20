@@ -1328,7 +1328,7 @@ exeAddr	4CA638h
 patch123_begin:
 	dd	0FFFFFFFFh
 	dd	48h
-	db	'Need For Kill (c) 2001-2011. Created by 3d[Power]. All rights preserved.', 0, 0, 0, 0
+	db	'Need For Kill (c) 2001-2012. Created by 3d[Power]. All rights preserved.', 0, 0, 0, 0
 	dd	0FFFFFFFFh
 	dd	40h
 	db	'http://needforkill.ru                e-mail: the.boobl@gmail.com', 0
@@ -4914,6 +4914,7 @@ ENDIF
 				dd		patch176_end - patch176_begin
 				dd		patch177_begin				; checkHardTimelimit call
 				dd		patch177_end - patch177_begin
+; here be 077
 patchSize_end:
 
 end start
