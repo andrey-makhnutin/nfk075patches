@@ -3928,7 +3928,7 @@ align 16
 patch176_begin:
 checkHardTimelimit	proc	; this function is called instead of ismultip in DXTimerTimer before MATCH_TIMELIMIT checks
 	mov		eax, gametime
-	cmp		eax, 15
+	cmp		eax, 5 * 60 * 60
 	jb		@F
 	mov		eax, offset aHardTimelimitHit
 	call	AddMessage
