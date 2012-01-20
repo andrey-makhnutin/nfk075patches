@@ -571,6 +571,9 @@ BNETSendData2HOST:  nop
 exeAddr 486E74h
 SpawnBubble:        nop
 
+exeAddr 48A138h
+GameEnd:		nop
+
 exeAddr 48BCFCh
 CalculateFragBar	proc
 
@@ -672,6 +675,9 @@ patch164_end:
 
 exeAddr 49CB38h
 IsWaterContentHEAD: nop
+
+exeAddr 4A73CCh
+aRestart	db	'restart', 0
 
 exeAddr	4AB800h
 DOM_Think:	nop
@@ -1641,6 +1647,11 @@ secondTickNotServer:	nop
 
 exeAddr 4F0FD9h
 endOfSecondEvent:   nop
+
+exeAddr 4F1210h
+patch177_begin:
+	call	checkHardTimelimit
+patch177_end:
 
 exeAddr	4F3080h
 patch125_begin:
@@ -3910,6 +3921,26 @@ align 4
 ApplyCommand_onMap_ex	endp
 patch172_end:
 
+align 16
+patch176_begin:
+checkHardTimelimit	proc	; this function is called instead of ismultip in DXTimerTimer before MATCH_TIMELIMIT checks
+	mov		eax, gametime
+	cmp		eax, 15
+	jb		@F
+	mov		eax, offset aHardTimelimitHit
+	call	AddMessage
+	mov		eax, offset aRestart
+	call	ApplyHCommand
+@@:
+	call	ismultip		; this call is necessary
+	retn
+align 4
+	dd		0FFFFFFFFh
+	dd		12h
+aHardTimelimitHit	db		'hard timelimit hit', 0
+checkHardTimelimit	endp
+patch176_end:
+
 IFDEF _MEMDEBUG
 
 exeAddr 785000h
@@ -4872,8 +4903,12 @@ ENDIF
 				dd		patch173_end - patch173_begin
 				dd		patch174_begin				; ignore alt key in MainForm_FormKeyDown
 				dd		patch174_end - patch174_begin
-				dd		patch175_begin
+				dd		patch175_begin				; init SYS_TEAMSELECT with zero in SpawnServer_PostInit
 				dd		patch175_end - patch175_begin
+				dd		patch176_begin				; checkHardTimelimit function
+				dd		patch176_end - patch176_begin
+				dd		patch177_begin				; checkHardTimelimit call
+				dd		patch177_end - patch177_begin
 patchSize_end:
 
 end start
