@@ -4826,10 +4826,12 @@ ENDIF
 				dd		patch133_end - patch133_begin
 				dd		patch134_begin				; new packet filter
 				dd		patch134_end - patch134_begin
+IFNDEF _DEDIC
 				dd		patch135_begin				; multiprocessor timer issues fix
 				dd		patch135_end - patch135_begin
 				dd		patch136_begin				; multiprocessor timer issues fix
 				dd		patch136_end - patch136_begin
+ENDIF
 				dd		patch137_begin				; network error handler
 				dd		patch137_end - patch137_begin
 				dd		patch138_begin				; network error handler
