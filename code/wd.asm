@@ -2006,6 +2006,14 @@ patch118_begin:
 	call	newPrintNFKEngineVersion
 patch118_end:
 
+exeAddr 524B55h
+patch178_begin:
+	jmp		ApplyCommand_onRestart_playersOk
+patch178_end:
+
+exeAddr 524B6Dh
+ApplyCommand_onRestart_playersOk:
+
 exeAddr	536BF9h
 patch173_begin:
 	jmp		ApplyCommand_onMap_ex
@@ -4914,6 +4922,8 @@ ENDIF
 				dd		patch176_end - patch176_begin
 				dd		patch177_begin				; checkHardTimelimit call
 				dd		patch177_end - patch177_begin
+				dd		patch178_begin				; let empty dedicated servers restart
+				dd		patch178_end - patch178_begin
 ; here be 077
 patchSize_end:
 
