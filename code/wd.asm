@@ -3756,12 +3756,18 @@ CheckMap	proc	; eax: LStr - filename
 	push	ebp
 	mov		ebp, esp
 	push	eax			; init filename
-	push	0			; init file
-	sub		esp, 2F8h	; allocate the rest of local variables
+	sub		esp, 2FCh	; allocate the rest of local variables
 	push	0			; init result value. 0 is an error
 	push	esi
 	push	edi
 	call	LStrAddRef
+	; init file with zeroes
+	xor		eax, eax
+	push	14Ch/4
+	pop		ecx
+	lea		edi, file
+	rep		stosd
+	; open file
 	mov		edx, filename
 	lea		eax, file
 	call	_ASSIGN
