@@ -148,8 +148,8 @@ FileSize:	nop			;params:
 							;eax - FileRecord
 
 exeAddr	4061BDh
-_RESETFILE:	nop							
-					
+_RESETFILE:	nop
+
 exeAddr	4061F4h
 Seek:		nop			;params
 							;eax - FileRecord
@@ -194,7 +194,7 @@ lstrpart_space	db	' ', 0
 exeAddr	451F80h
 TCustomWinSocket_SendText:	nop
 
-IFDEF _DEDIK
+IFDEF _DISABLED
 exeAddr 45304Fh
 patch30_begin:
 call    patch29_begin
@@ -1679,10 +1679,12 @@ patch32_begin:
 	retn
 patch32_end:
 
+IFNDEF _DEDIC
 exeAddr 4FE9F7h
 patch135_begin:
 	jmp		new_formCreateBegin
 patch135_end:
+ENDIF
 
 exeAddr 4FEA01h
 old_formCreateBegin:    nop
@@ -1782,7 +1784,7 @@ patch41_begin:
 	mov		edx, offset NFK_VERSION
 patch41_end:
 
-IFDEF PATCH154
+IFDEF _DISABLED
 exeAddr	50A15Ah
 patch154_begin:
 	call	BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex
@@ -1837,7 +1839,7 @@ nop
 patch15_end:
 l50CB06:    nop
 
-IFDEF PATCH155
+IFDEF _DISABLED
 exeAddr	50EB58h
 patch155_begin:
 	call	BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex
@@ -2533,7 +2535,7 @@ mov     eax, [esi + 8]
 retn
 patch27_end:
 
-IFDEF	_DEDIK
+IFDEF	_DISABLED
 align 16
 patch29_begin:
 mov		eax, sleepDelay
@@ -3018,6 +3020,7 @@ exit_notOk:
 BNET_NFK_ReceiveData_PacketFilter	endp
 patch133_end:
 
+IFNDEF _DEDIC
 align 16
 patch136_begin:
 new_formCreateBegin:
@@ -3058,6 +3061,7 @@ new_entryPointProcName1	db	'SetProcessAffinityMask', 0
 align 4
 new_entryPointProcName2	db	'GetCurrentProcess', 0
 patch136_end:
+ENDIF
 
 align 16
 patch137_begin:
@@ -3141,6 +3145,7 @@ exit:
 new_BNET_OnDataReceived	endp
 patch137_end:
 
+align 16
 patch139_begin:
 add_TestIP	proc	; function continuation (no prolog)
 					; must restore edi, esi (in that order), does not purge stack params
@@ -3197,6 +3202,7 @@ exit:
 add_TestIP	endp
 patch139_end:
 
+align 16
 patch141_begin:
 on_MMP_PING_distribute	proc	; jump on on_MMP_PING_do_distribute if ping distribution is needed (not spectators)
 								; jump on on_MMP_PING_no_distribute otherwise
@@ -3246,6 +3252,7 @@ exit:
 on_MMP_PING_distribute	endp
 patch141_end:
 
+align 16
 patch143_begin:
 new_secondTickServer	proc	; function insertion, no prolog or epilog
 								; can use ebx
@@ -3333,8 +3340,8 @@ noSpectators:
 new_secondTickServer	endp
 patch143_end:
 
-patch146_begin:
 align 16
+patch146_begin:
 ; process input of boolean-type (0 or 1) parameter
 ; eax - LStr: name of parameter
 ; edx - PChar: pointer to the parameter value
@@ -3437,7 +3444,6 @@ applyCommand_boolean_show		db	'" is "0". Default is "0". Possible range 0-1.', 0
 applyCommand_process_boolean	endp
 
 align 16
-
 applyCommand_ext	proc
 ;----------- local variables -------
 	s			EQU		<[ebp - 4]>
@@ -3485,8 +3491,8 @@ lstr_sv_allowdownload	db 'sv_allowdownload', 0
 applyCommand_ext	endp
 patch146_end:
 
-patch148_begin:
 align 16
+patch148_begin:
 ; save a numeric parameter in cfg
 ; eax - integer: number
 ; edx - LStr: name of parameter
@@ -3659,7 +3665,7 @@ lstrpart_out_of		db	' out of ', 0
 DrawMenu_ex	endp
 patch151_end:
 
-IFDEF PATCH153
+IFDEF _DISABLED
 align 16
 patch153_begin:
 BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex	proc
@@ -3678,7 +3684,7 @@ BNET_NFK_ReceiveData_on_MMP_GAMESTATEANSWER_mapNotFound_ex	endp
 patch153_end:
 ENDIF
 
-IFDEF PATCH156
+IFDEF _DISABLED
 align 16
 patch156_begin:
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_ex	proc
@@ -3805,7 +3811,7 @@ openSuccess:
 @@:	dec		ecx
 	mov		[mapStats + ecx * 2], ax
 	jnz		@B
-	
+
 	; reading a row of bricks
 readLoop:
 	lea		eax, temp
@@ -3834,10 +3840,10 @@ scanLoop:
 continueScan:
 	dec		ecx
 	jnz		scanLoop
-	; read next row	
+	; read next row
 	dec		edi
 	jnz		readLoop
-	
+
 	; everything is read, close the file, check map stats and return flags
 	lea		eax, file
 	call	_CLOSE
@@ -3883,9 +3889,9 @@ ApplyCommand_onMap_ex	proc
 	; print 'invalid map'
 	mov		eax, offset lstrInvalidMap
 printInvalidMap:	; printInvalidMap subprocedure. eax: LStr - message
-					;  prints a "<map name><message>", restores MATCH_GAMETYPE 
+					;  prints a "<map name><message>", restores MATCH_GAMETYPE
 					;  to its previous value and exits the ApplyCommand function
-					
+
 	push	eax		; save message
 	push	0		; init temporary LStr variable
 	mov		eax, loadmapsearch_lastfile
@@ -3958,630 +3964,7 @@ aHardTimelimitHit	db		'hard timelimit hit', 0
 checkHardTimelimit	endp
 patch176_end:
 
-IFDEF _MEMDEBUG
 
-exeAddr 785000h
-
-    jmp     newGetMem           ;jump from .004026E0 (5 nops ahead)
-exeAddr 785008h
-    jmp     newFreeMem          ;jump from .004026F8 (5 nops ahead)
-exeAddr 785010h
-    jmp     init                ;jump from .005480A4 (1 nop ahead)
-exeAddr 785018h
-    jmp     newReallocMem       ;jump from .00402710 (1 nop ahead)
-exeAddr 785020h
-    jmp     newHalt             ;call from .00548138 (0 nops ahead)
-exeAddr 785028h
-    jmp     onTimer             ;jump from .004E9388 (3 nops ahead)
-exeAddr 785030h
-    jmp     newNewAnsiString    ;jump from .00403D10 (0 nops ahead)
-exeAddr 785038h
-    jmp     newLStrFromPCharLen ;jump from .00403D34 (0 nops ahead)
-
-align   10h
-newGetMem   proc
-    push    eax     ;save requested amount of memory
-    add     eax, 8
-    call    oldGetMem
-
-    push    eax
-    push    offset chainCriticalSection
-    call    EnterCriticalSection
-    pop     eax
-
-    mov     ecx, nestingCount
-    test    ecx, ecx
-    jnz     @F
-    mov     edx, dword ptr [esp+4]
-    mov     retAddr, edx
-@@:
-    inc     ecx
-    mov     nestingCount, ecx
-    mov     ecx, retAddr
-
-    mov     dword ptr [eax], ecx            ;caller
-    mov     edx, dword ptr [esp]            ;size
-    mov     dword ptr [eax+4], edx
-    add     eax, 8
-    push    eax
-    call    addMemRecord
-
-    mov     ecx, nestingCount
-    dec     ecx
-    jnz     @F
-    mov     retAddr, ecx
-@@:
-    mov     nestingCount, ecx
-
-    push    offset chainCriticalSection
-    call    LeaveCriticalSection
-
-    pop     eax
-    add     esp, 4
-    retn
-newGetMem   endp
-
-oldGetMem   proc
-    test    eax, eax
-    jz      l4026EE
-    call    l54901C
-    jmp     l4026EA
-oldGetMem   endp
-
-align   10h
-newFreeMem  proc
-    test    eax, eax
-    jz      oldFreeMem
-    sub     eax, 8
-    push    edx
-    push    eax
-    mov     edx, dword ptr [eax+4]
-    mov     eax, dword ptr [eax]
-    call    deleteMemRecord
-    pop     eax
-    pop     edx
-    call    oldFreeMem
-    retn
-newFreeMem  endp
-
-oldFreeMem  proc
-    test    eax, eax
-    jz      l402706
-    call    l549020
-    jmp     l402702
-oldFreeMem  endp
-
-newReallocMem   proc
-    push    eax
-    push    edx
-    mov     ecx, dword ptr [eax]
-    test    ecx, ecx
-    jz      nofree
-    sub     ecx, 8
-    mov     dword ptr [eax], ecx
-    mov     eax, dword ptr [ecx]
-    mov     edx, dword ptr [ecx+4]
-    call    deleteMemRecord
-    mov     eax, dword ptr [esp+4]
-    mov     edx, dword ptr [esp]
-nofree:
-    test    edx, edx
-    jz      @F
-    add     edx, 8
-@@:
-    call    oldReallocMem
-    pop     edx
-    pop     ecx
-    test    edx, edx
-    jz      noalloc
-
-    add     eax, 8
-    push    eax
-    push    ecx
-    push    edx
-    push    offset chainCriticalSection
-    call    EnterCriticalSection
-    pop     edx
-    pop     ecx
-
-    mov     eax, dword ptr [ecx]
-    add     dword ptr [ecx], 8
-
-    mov     ecx, nestingCount
-    test    ecx, ecx
-    jnz     @F
-    mov     ecx, dword ptr [esp+4]
-    mov     retAddr, ecx
-@@:
-    inc     nestingCount
-
-    mov     ecx, retAddr
-    mov     dword ptr [eax], ecx
-    mov     dword ptr [eax+4], edx
-    call    addMemRecord
-
-    mov     ecx, nestingCount
-    dec     ecx
-    jnz     @F
-    mov     retAddr, ecx
-@@:
-    mov     nestingCount, ecx
-
-    push    offset chainCriticalSection
-    call    LeaveCriticalSection
-
-    pop     eax
-noalloc:
-    retn
-newReallocMem   endp
-
-
-oldReallocMem   proc    ;eax - pointer to a memory, edx - new requested size
-    mov     ecx, dword ptr [eax]
-    test    ecx, ecx
-    jz      l402748
-    jmp     l402716
-oldReallocMem   endp
-
-init    proc
-    pusha
-    push    offset chainCriticalSection
-    call    InitializeCriticalSection
-    call    GetTickCount
-    mov     starttime, eax
-    mov     timestamp, eax
-    popa
-;old init stuff
-    push    ebp
-    mov     ebp, esp
-    add     esp, 0FFFFFFF4h
-    jmp     l5480AA
-init    endp
-
-newHalt proc
-    call    GetTickCount
-    mov     timestamp, eax
-    call    saveToDisk
-    call    l403B14h
-    retn
-newHalt endp
-
-onTimer proc
-    push    eax
-    push    edx
-    call    GetTickCount
-    mov     edx, timestamp
-    sub     eax, edx
-    cmp     eax, 60000
-    jb      exit
-    add     edx, eax
-    mov     timestamp, edx
-    call    saveToDisk
-    call    cleanChain
-exit:
-    pop     edx
-    pop     eax
-    push    ebp
-    mov     ebp, esp
-    mov     ecx, 4Fh
-    jmp     l4E9390
-onTimer endp
-
-newNewAnsiString proc
-    push    eax
-    push    offset chainCriticalSection
-    call    EnterCriticalSection
-
-    mov     eax, nestingCount
-    test    eax, eax
-    jnz     @F
-    mov     ecx, dword ptr [esp+4]
-    mov     retAddr, ecx
-@@:
-    inc     eax
-    mov     nestingCount, eax
-
-    pop     eax
-    call    oldNewAnsiString
-    push    eax
-
-    mov     eax, nestingCount
-    dec     eax
-    jnz     @F
-    mov     retAddr, eax
-@@:
-    mov     nestingCount, eax
-
-    push    offset chainCriticalSection
-    call    LeaveCriticalSection
-    pop     eax
-    retn
-newNewAnsiString endp
-
-oldNewAnsiString proc
-    test    eax, eax
-    jle     l403D30
-    push    eax
-    jmp     l403D15
-oldNewAnsiString endp
-
-newLStrFromPCharLen proc
-    push    eax
-    push    edx
-    push    ecx
-    push    offset chainCriticalSection
-    call    EnterCriticalSection
-
-    mov     eax, nestingCount
-    test    eax, eax
-    jnz     @F
-    mov     ecx, dword ptr [esp+0Ch]
-    mov     retAddr, ecx
-@@:
-    inc     eax
-    mov     nestingCount, eax
-
-    pop     ecx
-    pop     edx
-    pop     eax
-    call    oldLStrFromPCharLen
-    push    eax
-
-    mov     eax, nestingCount
-    dec     eax
-    jnz     @F
-    mov     retAddr, eax
-@@:
-    mov     nestingCount, eax
-
-    push    offset chainCriticalSection
-    call    LeaveCriticalSection
-    pop     eax
-    retn
-newLStrFromPCharLen endp
-
-oldLStrFromPCharLen proc
-    push    ebx
-    push    esi
-    push    edi
-    mov     ebx, eax
-    jmp     l403D39
-oldLStrFromPCharLen endp
-
-allocBlock  proc
-    push    edi
-    mov     eax, 4000h      ;16k blocks
-    call    oldGetMem
-    push    eax
-    mov     edi, eax
-    xor     eax, eax
-    mov     ecx, 1000h
-    rep     stosd
-    pop     eax
-    pop     edi
-    retn
-allocBlock  endp
-
-addMemRecord    proc    ;edx - size
-    push    esi
-    push    edi
-
-    mov     esi, retAddr
-    mov     edi, edx
-
-    mov     edx, offset allocChain
-moveToNewBlock:
-    mov     eax, dword ptr [edx]
-    test    eax, eax
-    jnz     @F
-    push    edx
-    call    allocBlock
-    pop     edx
-    mov     dword ptr [edx], eax
-@@:
-    mov     edx, eax
-    mov     ecx, 3FFh
-blockLoop:
-    mov     eax, dword ptr [edx]
-    cmp     eax, esi
-    jz      found
-    test    eax, eax
-    jz      notfound
-    add     edx, 10h
-    dec     ecx
-    jnz     blockLoop
-    jmp     moveToNewBlock
-notfound:
-    mov     dword ptr [edx], esi
-found:
-;found a free place in chain, edx points there
-    add     dword ptr [edx+4], edi
-    inc     dword ptr [edx+8]
-    add     dword ptr [edx+0Ch], edi
-
-    pop     edi
-    pop     esi
-    retn
-addMemRecord    endp
-
-deleteMemRecord proc    ;eax - caller address, edx - size
-    push    esi
-    push    edi
-    mov     esi, eax
-    mov     edi, edx
-
-    push    offset chainCriticalSection
-    call    EnterCriticalSection
-
-    mov     edx, offset allocChain
-moveToNewBlock:
-    mov     edx, dword ptr [edx]
-    test    edx, edx
-    jz      err
-    mov     ecx, 3FFh
-blockLoop:
-    mov     eax, dword ptr [edx]
-    cmp     eax, esi
-    jz      found
-    cmp     eax, 0
-    jz      err
-    add     edx, 10h
-    dec     ecx
-    jnz     blockLoop
-    jmp     moveToNewBlock
-found:
-    dec     dword ptr [edx+8]
-    sub     dword ptr [edx+4], edi
-    sub     dword ptr [edx+0Ch], edi
-
-    push    offset chainCriticalSection
-    call    LeaveCriticalSection
-
-    pop     edi
-    pop     esi
-    retn
-err:
-    int     3
-deleteMemRecord endp
-
-cleanChain  proc
-    push    offset chainCriticalSection
-    call    EnterCriticalSection
-
-    mov     edx, offset allocChain
-moveToNewBlock:
-    mov     edx, dword ptr [edx]
-    test    edx, edx
-    jz      exit
-    mov     ecx, 3FFh
-blockLoop:
-    mov     eax, dword ptr [edx]
-    test    eax, eax
-    jz      exit
-    mov     dword ptr [edx+4], 0
-    mov     dword ptr [edx+8], 0
-    lea     edx, [edx+10h]
-    dec     ecx
-    jz      moveToNewBlock
-    jmp     blockLoop
-exit:
-
-    push    offset chainCriticalSection
-    call    LeaveCriticalSection
-    retn
-cleanChain  endp
-
-dwordToHex  proc    ;eax - pointer to buffer, edx - dword
-    push    edi
-    mov     edi, eax
-    test    edx, edx
-    jns     nosign
-    mov     al, '-'
-    dec     edi
-    stosb
-    neg     edx
-nosign:
-    mov     ecx, 8
-hexloop:
-    rol     edx, 4
-    mov     al, dl
-    and     al,0Fh
-    cmp     al, 9
-    jbe     digit
-    add     al, 7
-digit:
-    add     al, '0'
-    stosb
-    dec     ecx
-    jnz     hexloop
-    pop     edi
-    retn
-dwordToHex  endp
-
-dwordToDec  proc    ;eax - dword, edx - pointer to buffer
-    test    eax, eax
-    jnz     nozero
-    mov     byte ptr [edx], '0'
-    lea     eax, [edx+1]
-    retn
-nozero:
-    push    esi
-    push    edi
-    mov     edi, edx
-    jns     nosign
-    mov     byte ptr [edi], '-'
-    inc     edi
-    neg     eax
-nosign:
-    mov     ecx, 0Ah
-    mov     esi, edi
-@@:
-    test    eax, eax
-    jz      exit
-    xor     edx, edx
-    div     ecx
-    add     dl, '0'
-    mov     byte ptr [edi], dl
-    inc     edi
-    jmp     @B
-exit:
-    mov     eax, edi
-@@:
-    dec     edi
-    mov     cl, byte ptr [edi]
-    mov     ch, byte ptr [esi]
-    mov     byte ptr [edi], ch
-    mov     byte ptr [esi], cl
-    inc     esi
-    cmp     esi, edi
-    jb      @B
-
-    pop     edi
-    pop     esi
-    retn
-dwordToDec  endp
-
-saveToDisk  proc
-    push    ebx
-    push    esi
-    push    edi
-    push    0
-    push    0
-    push    OPEN_ALWAYS
-    push    0
-    push    0
-    push    GENERIC_WRITE
-    push    offset aMemReport
-    call    CreateFileA
-    cmp     eax, 0FFFFFFFFh
-    jz      exit
-    mov     ebx, eax
-    push    FILE_END
-    push    0
-    push    0
-    push    eax
-    call    SetFilePointer
-    sub     esp, 3Ch
-    mov     edi, esp
-    mov     ecx, 0Eh
-    mov     eax, "----"
-    rep     stosd
-    mov     eax, 20202D2Dh
-    stosd
-    mov     eax, " :st"
-    mov     edi,esp
-    stosd
-    mov     eax, edi
-    mov     edx, timestamp
-    sub     edx, starttime
-    call    dwordToHex
-    call    write
-;writing alloc chain
-    call    klear
-    mov     edi, esp
-    mov     esi, offset aAllocChain
-    mov     ecx, LENGTHOF aAllocChain
-    rep     movsb
-    call    write
-    call    klear
-
-    push    offset chainCriticalSection
-    call    EnterCriticalSection
-
-    mov     edi, offset allocChain
-moveToNewAllocBlock:
-    mov     edi, dword ptr [edi]
-    test    edi, edi
-    jz      finishAllocBlock
-    mov     esi, 3FFh
-@@:
-    mov     edx, dword ptr [edi]
-    test    edx, edx
-    jz      finishAllocBlock
-    call    klear
-    sub     edx, 5
-    lea     eax, [esp]
-    call    dwordToHex
-    lea     edx, [esp+8]
-    mov     byte ptr [edx], 9
-    mov     eax, dword ptr [edi+4]
-    inc     edx
-    call    dwordToDec
-    mov     byte ptr [eax], 9
-    lea     edx, [eax+1]
-    mov     eax, dword ptr [edi+8]
-    call    dwordToDec
-    mov     byte ptr [eax], 9
-    lea     edx, [eax+1]
-    mov     eax, dword ptr [edi+0Ch]
-    call    dwordToDec
-    call    write
-    lea     edi, [edi+10h]
-    dec     esi
-    jz      moveToNewAllocBlock
-    jmp     @B
-finishAllocBlock:
-
-    push    offset chainCriticalSection
-    call    LeaveCriticalSection
-
-    push    ebx
-    call    CloseHandle
-exit:
-    add     esp, 3Ch
-    pop     edi
-    pop     esi
-    pop     ebx
-    retn
-saveToDisk  endp
-
-klear   proc
-    push    edi
-    mov     al, ' '
-    mov     ecx, 3Ch
-    lea     edi, [esp+8]
-    rep     stosb
-    pop     edi
-    retn
-klear   endp
-
-write   proc
-    lea     eax, [esp+4]
-    lea     ecx, [eax+3Ch]
-@@:
-    dec     ecx
-    cmp     byte ptr [ecx], ' '
-    jz      @B
-    inc     ecx
-    mov     word ptr [ecx], 0A0Dh
-    lea     ecx, [ecx+2]
-    sub     ecx, eax
-
-    add     esp, -4
-    mov     edx, esp
-    push    0
-    push    edx
-    push    ecx
-    push    eax
-    push    ebx
-    call    WriteFile
-    add     esp, 4
-    retn
-write   endp
-
-align   10h
-;data goes here
-allocChain  dd  0
-allocLastFreeBlock  dd  0
-chainCriticalSection    dd 0,0,0,0,0,0
-starttime   dd 0
-timestamp   dd 0
-aMemReport  db  "memreport.txt",0
-aAllocChain db  "Alloc chain:"
-retAddr     dd  0
-nestingCount    dd  0
-
-ENDIF
 align   4
 patchCount      dd      (patchSize_end - patchSize_begin) / 8
 patchSize_begin dd      patch5_begin				; 6 players fix
@@ -4618,7 +4001,7 @@ ENDIF
                 dd      patch27_end - patch27_begin
                 dd      patch28_begin				; memory leak fix
                 dd      patch28_end - patch28_begin
-IFDEF	_DEDIK
+IFDEF	_DISABLED
                 dd      patch29_begin				; sleeping pill
                 dd      patch29_end - patch29_begin
                 dd      patch30_begin				; sleeping pill
