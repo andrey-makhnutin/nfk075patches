@@ -1011,7 +1011,7 @@ SpawnServer:	nop
 
 exeAddr	4B74E8h
 patch115_begin:
-	mov		edx, offset LNFK_VERSION
+	mov		edx, offset LFULL_NFK_VERSION
 patch115_end:
 
 NFKPlanet_PingLastServer	proc
@@ -1346,6 +1346,14 @@ patch124_end:
 
 exeAddr	4CB534h
 DrawMenu_onConnect_connectStr	dd	0
+
+exeAddr 4D21ACh
+ResetMap:	nop
+
+exeAddr 4DA449h
+patch181_begin:
+	call	MapRestart_resetSpectators
+patch181_end:
 
 exeAddr 4E5735h
 patch5_begin:
@@ -3964,6 +3972,48 @@ aHardTimelimitHit	db		'hard timelimit hit', 0
 checkHardTimelimit	endp
 patch176_end:
 
+align 16
+patch180_begin:
+MapRestart_resetSpectators	proc	; Map_Restart functiion code insertion. 
+									; A call to this funtion replaces a call to ResetMap
+									; receive nothing, return nothing, no stack frame
+;----------- local variables -------
+	i		EQU		<[esp]>		; dword
+;----------- code ------------------
+	call	ResetMap
+	; we will need edi, save it
+	push	edi
+	; loop through spectators
+	push	ecx				; allocate i
+	mov		edi, SpectatorList
+	mov		edx, [edi + 8]	; TList.Count
+	cmp		edx, 0
+	jle		exit
+	dec		edx
+spectatorsLoop:
+	mov		i, edx
+	mov		eax, edi
+	call	TList_Get
+	lea		edx, [eax + 034h]	; TSpectator.lastPingTime
+	mov		eax, STIME
+	mov		[edx], eax			; set spectator's last ping time to current time
+nextSpectator:
+	mov		edx, i
+	dec		edx
+	jnc		spectatorsLoop
+exit:
+	pop		eax			; free i
+	pop		edi			; restore edi
+	retn
+MapRestart_resetSpectators	endp
+patch180_end:
+
+align 16			; all additional data you could possibly need
+patch179_begin:
+	dd	0FFFFFFFFh
+	dd	8
+LFULL_NFK_VERSION	db	'077 rev2', 0
+patch179_end:
 
 align   4
 patchCount      dd      (patchSize_end - patchSize_begin) / 8
@@ -4313,6 +4363,12 @@ ENDIF
 				dd		patch177_end - patch177_begin
 				dd		patch178_begin				; let empty dedicated servers restart
 				dd		patch178_end - patch178_begin
+				dd		patch179_begin				; introduction of a revision number in console
+				dd		patch179_end - patch179_begin
+				dd		patch180_begin				; MapRestart_resetSpectators - an addition to Map_Restart that resets spectators' last ping time
+				dd		patch180_end - patch180_begin
+				dd		patch181_begin				; jump to MapRestart_resetSpectators
+				dd		patch181_end - patch181_begin
 ; here be 077
 patchSize_end:
 
