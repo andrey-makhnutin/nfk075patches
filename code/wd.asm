@@ -3974,7 +3974,7 @@ patch176_end:
 
 align 16
 patch180_begin:
-MapRestart_resetSpectators	proc	; Map_Restart functiion code insertion. 
+MapRestart_resetSpectators	proc	; Map_Restart functiion code insertion.
 									; A call to this funtion replaces a call to ResetMap
 									; receive nothing, return nothing, no stack frame
 ;----------- local variables -------
@@ -4335,12 +4335,14 @@ ENDIF
 				dd		patch163_end - patch163_begin
 				dd		patch164_begin				; check for battle suit before applying damage while in lava (no damage with BS)
 				dd		patch164_end - patch164_begin
-				;dd		patch165_begin				; allow connect to local IPs
-				;dd		patch165_end - patch165_begin
-				;dd		patch166_begin				; don't filter packets from local IPs
-				;dd		patch166_end - patch166_begin
-				;dd		patch167_begin				; don't filter packets from local IPs
-				;dd		patch167_end - patch167_begin
+IFDEF _TEST
+				dd		patch165_begin				; allow connect to local IPs
+				dd		patch165_end - patch165_begin
+				dd		patch166_begin				; don't filter packets from local IPs
+				dd		patch166_end - patch166_begin
+				dd		patch167_begin				; don't filter packets from local IPs
+				dd		patch167_end - patch167_begin
+ENDIF
 				dd		patch168_begin				; remove weapon if asked by server
 				dd		patch168_end - patch168_begin
 				dd		patch169_begin				; don't add blood splashes if r_massacre == 0
