@@ -4303,10 +4303,10 @@ ENDIF
 				dd		patch147_end - patch147_begin
 				dd		patch148_begin				; SaveCFG extension
 				dd		patch148_end - patch148_begin
-				dd		patch149_begin				; LOADMAP extension
-				dd		patch149_end - patch149_begin
-				dd		patch150_begin				; LOADMAP extension
-				dd		patch150_end - patch150_begin
+				;dd		patch149_begin				; LOADMAP extension
+				;dd		patch149_end - patch149_begin
+				;dd		patch150_begin				; LOADMAP extension
+				;dd		patch150_end - patch150_begin
 				dd		patch151_begin				; DrawMenu extension
 				dd		patch151_end - patch151_begin
 				dd		patch152_begin				; DrawMenu extension
