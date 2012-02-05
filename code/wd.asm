@@ -1857,6 +1857,19 @@ ENDIF
 exeAddr	50EB64h
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex:	nop
 
+exeAddr 50ECC0h
+patch182_begin:
+	mov		edx, players[edx * 4]
+	test	edx, edx
+	jz		BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_no_hitsnd
+	jmp		@F
+patch182_end:
+exeAddr 50ECD1h
+@@:	nop
+
+exeAddr 50ED69h
+BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_no_hitsnd: nop
+
 exeAddr 512CBAh
 patch168_begin:
 	jmp		BNET_NFK_ReceiveData_on_MMP_CL_OBJDESTROY_isPlasma
@@ -4365,13 +4378,16 @@ ENDIF
 				dd		patch177_end - patch177_begin
 				dd		patch178_begin				; let empty dedicated servers restart
 				dd		patch178_end - patch178_begin
+; here be 077
 				dd		patch179_begin				; introduction of a revision number in console
 				dd		patch179_end - patch179_begin
 				dd		patch180_begin				; MapRestart_resetSpectators - an addition to Map_Restart that resets spectators' last ping time
 				dd		patch180_end - patch180_begin
 				dd		patch181_begin				; jump to MapRestart_resetSpectators
 				dd		patch181_end - patch181_begin
-; here be 077
+; here be 077 rev2
+				dd		patch182_begin				; OPT_BARTRAX1 check
+				dd		patch182_end - patch182_begin
 patchSize_end:
 
 end start
