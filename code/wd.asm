@@ -17,6 +17,7 @@ MMP_LOBBY_GAMESTATE_RESULT	equ		85
 MMP_SPECTATORDISCONNECT		equ		38
 MMP_IAMQUIT	equ		75
 MMP_CTF_EVENT_FLAGDROP	equ	35h
+MMP_PLAYERPOSUPDATE_PACKED	equ	88
 
 Gametype_CTF	equ	3
 Gametype_DOM	equ	7
@@ -567,6 +568,9 @@ BNETSendData2IP_:	nop
 
 exeAddr 484D08h
 BNETSendData2HOST:  nop
+
+exeAddr	484EB4h
+GetNumberOfPlayers:	nop
 
 exeAddr 486E74h
 SpawnBubble:        nop
@@ -1355,11 +1359,248 @@ patch181_begin:
 	call	MapRestart_resetSpectators
 patch181_end:
 
-exeAddr 4E5735h
+exeAddr	4E39CCh
+BNETWORK_TMP_PlayerPosUpdate_copy_fill: nop
+
+exeAddr	4E4064h
+BNETWORK_TMP_PlayerPosUpdate_fill:	nop
+
+exeAddr	4E4804h
+patch183_begin:
+BNETWORK_Sv_PlayerPosUpdate_packed	proc
+;------- locals --------------------
+allPlayersData		EQU		<[ebp - 4]>		; PByte, size = 4
+otherPlayersData	EQU		<[ebp - 8]>		; PByte, size = 4
+i					EQU		<[ebp - 0Ch]>	; Integer, size = 4
+leftPartSize		EQU		<[ebp - 10h]>	; Integer, size = 4
+rightPartSize		EQU		<[ebp - 14h]>	; Integer, size = 4
+allDataSize			EQU		<[ebp - 18h]>	; Integer, size = 4
+otherDataSize		EQU		<[ebp - 1Ch]>	; Integer, size = 4
+eachMsgSize			EQU		<[ebp - 20h]>	; byte[8], size = 8
+eachPlayerIndex		EQU		<[ebp - 28h]>	; byte[8], size = 8
+msgCount			EQU		<[ebp - 30h]>	; Integer, size = 4
+;------- codes ---------------------
+	push	ebp
+	mov		ebp, esp
+	sub		esp, 34h
+	push	esi
+	push	edi
+	push	ebx
+	; calculate max needed buffer size
+	call	GetNumberOfPlayers
+	test	eax, eax
+	jz		noPlayers
+	mov		i, eax
+	imul	eax, 19		; 19 - sizeof(TMP_PlayerPosUpdate)
+	add		eax, 2		; 2 - sizeof(TPlayerPosUpdate_Packed)
+	push	eax
+	; allocate two buffers: one for all players data (count = <players count>) which is sent to spectators
+	;  and also holds position information of every player	
+	; and one buffer for all players data except one (count = <players count> - 1) to be sent to each player
+	; also initialize TPlayerPosUpdate_Packed header
+	call	GetMem
+	mov		allPlayersData, eax
+	mov		byte ptr [eax], MMP_PLAYERPOSUPDATE_PACKED
+	lea		eax, [eax + 1]
+	mov		ecx, i
+	mov		byte ptr [eax], cl	; put players count into TPlayerPosUpdate_Packed.Count
+	pop		eax
+	call	GetMem
+	mov		otherPlayersData, eax
+	mov		byte ptr [eax], MMP_PLAYERPOSUPDATE_PACKED
+	lea		eax, [eax + 1]
+	mov		ecx, i
+	dec		ecx
+	mov		byte ptr [eax], cl	; put players count - 1 into TPlayerPosUpdate_Packed.Count
+	; loop through all the players and add msg to allPlayersData. 
+	; Store the size of each msg in eachMsgSize array and the index of each player in eachPlayerIndex array
+	mov		ebx, allPlayersData	; ebx - current msg pointer (inside buffer)
+	lea		edi, eachMsgSize	; edi - current msg size offset
+	lea		esi, eachPlayerIndex	; esi - current player index offset
+	add		ebx, 2				; skip TPlayerPosUpdate_Packed buffer
+	xor		eax, eax
+	mov		i, eax
+playersLoop:
+	mov		edx, g_players[eax * 4]
+	test	edx, edx
+	jz		playersLoopContinue
+	; store current player index and advance current player index pointer
+	mov		[esi], al
+	inc		esi
+	; if player's InertiaY and Y didn't change, use PlayerPosUpdate_copy message
+	fld		qword ptr [edx + 2c0h]	; 2c0h - TPlayer.InertiaY
+	fcomp	qword ptr [edx + 338h]	; 338h - TPlayer.NET_LastInertiaY
+	fnstsw	ax
+	sahf
+	jnz		@F
+	fld		qword ptr [edx + 298h]	; 298h - TPlayer.Y
+	fcomp	qword ptr [edx + 340h]	; 340h - TPlayer.NET_LastPosY low dword
+	fnstsw	ax
+	sahf
+	jnz		@F
+	; using TMP_PlayerPosUpdate_copy message
+	mov		edx, ebx
+	mov		eax, i
+	call	BNETWORK_TMP_PlayerPosUpdate_copy_fill
+	mov		eax, 13		; 13 - sizeof(TMP_PlayerPosUpdate_copy)
+	mov		[edi], al	; store current message size (and advance current msg size pointer)
+	inc		edi
+	add		ebx, eax	; advance current msg pointer
+	jmp		playersLoopContinue
+@@:	; using TMP_PlayerPosUpdate message
+	mov		edx, ebx
+	mov		eax, i
+	call	BNETWORK_TMP_PlayerPosUpdate_fill
+	mov		eax, 19		; 19 - sizeof(TMP_PlayerPosUpdate)
+	mov		[edi], al	; store current message size (and advance current msg size pointer)
+	inc		edi
+	add		ebx, eax	; advance current msg pointer
+	; copy InertiaY into NET_LastInertiaY and Y into NET_LastPosY
+	mov		eax, i
+	mov		edx, g_players[eax * 4]
+	mov		ecx, [edx + 2c0h]	; 2c0h - TPlayer.InertiaY lo dword
+	mov		eax, [edx + 2c4h]	; 2c4h - TPlayer.InertiaY hi dword
+	mov		[edx + 338h], ecx	; 338h - TPlayer.NET_LastInertiaY lo dword
+	mov		[edx + 33ch], eax	; 33ch - TPlayer.NET_LastInertiaY hi dword
+	mov		ecx, [edx + 298h]	; 298h - TPlayer.Y lo dword
+	mov		eax, [edx + 29Ch]	; 29ch - TPlayer.Y hi dword
+	mov		[edx + 340h], ecx	; 340h - TPlayer.NET_LastY lo dword
+	mov		[edx + 344h], eax	; 344h - TPlayer.NET_LastY hi dword
+playersLoopContinue:
+	inc		dword ptr i
+	mov		eax, i
+	cmp		eax, 8
+	jl		playersLoop
+	; calculate allDataSize and msgCount
+	mov		eax, allPlayersData
+	lea		ecx, eachMsgSize
+	sub		ebx, eax
+	sub		edi, ecx
+	mov		allDataSize, ebx
+	mov		msgCount, edi
+	dec		edi
+	jz		onlyOnePlayer	; no need to send player pos updates to players, if there is only one player
+	; send each player positions of other players. Use single buffer otherPlayersData for sending, 
+	;  copy appropriate messages with info on other players positions from allPlayersData: 
+	;  first player will get 2nd, 3rd, 4th ... messages
+	;  second player will get 1st, 3rd, 4th ... messages
+	;  third player will get 1st, 2nd, 4th and so on
+	; the algorithm is really hard to explain, try to figure the rest from the code
+	; otherPlayersData buffer is made of 2 parts - left one and right one. In the left part there are messages about players
+	;  whose indexes are lesser than index of current player (to whom the message will be sent). In the right part there are
+	;  messages about players with indexes that are greater than that of the current player. For the first player, left part is
+	;  empty, and the right part contains info about all players but the first one.
+	
+	; initially rightPartSize will be equal to the size of all messages, it will be reduced right before the data is sent
+	mov		rightPartSize, ebx
+	; esi points to the message with current player's position. It will be ignored, and the rest will be copied to the right part
+	mov		esi, allPlayersData
+	; edi points to the place in otherPlayersData where the right part will be copied
+	mov		edi, otherPlayersData
+	; ebx points to the size of current player's message
+	lea		ebx, eachMsgSize
+	add		esi, 2			; 2 - sizeof(TPlayerPosUpdate_Packed)
+	add		edi, 2
+	xor		eax, eax
+	; initially, left part is empty
+	mov		leftPartSize, eax
+	mov		i, eax
+playersLoop2:
+	xor		eax, eax
+	mov		al, [ebx]	; read msg size
+	mov		edx, edi	; dest = right part
+	mov		ecx, rightPartSize
+	sub		ecx, eax	; count = right part size (previous size - size of current player's message)
+	mov		rightPartSize, ecx
+	jz		@F
+	add		eax, esi	; src = positions of next player's message
+	call	Move		; copy right part
+@@:
+	mov		eax, i
+	lea		edx, eachPlayerIndex
+	mov		al, [edx + eax]		; get current player's index
+	mov		eax, g_players[eax * 4]	
+	cmp		byte ptr [eax + 274h], 1	; 274 - TPlayer.netobject
+	jnz		dontSend					; don't send anything to local players
+	; size of packet = right part size + left part size + 2
+	mov		ecx, rightPartSize
+	add		ecx, leftPartSize
+	add		ecx, 2					; 2 - sizeof(TPlayerPosUpdate_Packed)
+	push	dword ptr otherPlayersData	; data to send
+	push	ecx						; size
+	xor		ecx, ecx
+	push	ecx						; importance flag (not important)
+	mov		cx, [eax + 242h]		; 242 - TPlayer.Port
+	lea		edx, [eax + 141h]		; 141 - TPlayer.ip_addr
+	mov		eax, mainform
+	call	BNETSendData2IP_		; send to current player
+dontSend:
+	; copy current player's position info to the left part
+	xor		ecx, ecx
+	mov		cl, [ebx]			; count = current message's size
+	mov		eax, esi			; src = current player's message
+	add		leftPartSize, ecx	; increase leftPartSize
+	mov		edx, edi			; dest = right part buffer (it's ok, last message of the left part lies exactly 
+								;  where first message of right part was located)
+	add		esi, ecx			; move esi to next player's message
+	add		edi, ecx			; update right part pointer
+	call	Move				; move current player's message to the left part
+	inc		dword ptr i
+	inc		ebx					; advance messageSize pointer
+	mov		al, i
+	cmp		al, msgCount
+	jb		playersLoop2
+onlyOnePlayer:
+
+	; send all players info to spectators
+	mov		eax, SpectatorList
+	cmp		dword ptr [eax + 8], 0	; 8 - TList.Count
+	jle		noSpectators
+	mov		ebx, [eax + 8]
+	mov		edi, allDataSize
+	mov		esi, allPlayersData
+	xor		edx, edx
+	mov		i, edx
+spectatorsLoop:
+	; spectator index should be in edx at this point
+	push	esi		; data to send
+	push	edi		; length of data to send
+	push	0		; urgency flag
+	mov		eax, SpectatorList
+	call	TList_Get
+	xor		ecx, ecx
+	mov		edx, [eax + 1Fh]		; 1Fh - TSpectator.address
+	mov		cx, [eax + 30h]			; 30h - TSpectator.port
+	mov		eax, mainform
+	call	BNETSendData2IP_
+	inc		dword ptr i
+	mov		edx, i
+	cmp		edx, ebx
+	jnz		spectatorsLoop
+noSpectators:
+	mov		eax, allPlayersData
+	call	FreeMem
+	mov		eax, otherPlayersData
+	call	FreeMem
+noPlayers:
+	pop		ebx
+	pop		edi
+	pop		esi
+	mov		esp, ebp
+	pop		ebp
+	retn	
+BNETWORK_Sv_PlayerPosUpdate_packed	endp
+patch183_end:
+
+;exeAddr 4E5735h	removed in 077 rev3
+exeAddr 4E573Eh		; added in 077 rev3
 patch5_begin:
-jmp     l4E5751
+;jmp     l4E5751	removed in 077 rev3
+jmp		l4E5747		; added in 077 rev3
 patch5_end:
 
+exeAddr 4E5747h
+l4E5747:	nop
 
 exeAddr 4E5751h
 l4E5751:    nop
@@ -1823,29 +2064,27 @@ BNET_NFK_ReceiveData_on_MMP_REGISTERPLAYER_dontShowWindow: nop
 
 exeAddr 50CA9Eh
 patch14_begin:
-jmp     l50CAA7
-nop
-nop
-nop
-nop
-nop
-nop
-nop
+;jmp     l50CAA7	removed in 077 rev3
+jmp		l50CAE5		; added in 077 rev3
 patch14_end:
+
+exeAddr 50CAA7h
 l50CAA7:    nop
+
+exeAddr 50CAE5h
+l50CAE5:	nop
 
 exeAddr 50CAFDh
 patch15_begin:
-jmp     l50CB06
-nop
-nop
-nop
-nop
-nop
-nop
-nop
+;jmp     l50CB06	removed in 077 rev3
+jmp		l50CB44		; added in 077 rev3
 patch15_end:
+
+exeAddr 50CB06h
 l50CB06:    nop
+
+exeAddr 50CB44h
+l50CB44:	nop
 
 IFDEF _DISABLED
 exeAddr	50EB58h
@@ -1859,7 +2098,7 @@ BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_after_ex:	nop
 
 exeAddr 50ECC0h
 patch182_begin:
-	mov		edx, players[edx * 4]
+	mov		edx, g_players[edx * 4]
 	test	edx, edx
 	jz		BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_no_hitsnd
 	jmp		@F
@@ -4388,6 +4627,8 @@ ENDIF
 ; here be 077 rev2
 				dd		patch182_begin				; OPT_BARTRAX1 check
 				dd		patch182_end - patch182_begin
+				dd		patch183_begin				; new BNETWORK_Sv_PlayerPosUpdate_packed function
+				dd		patch183_end - patch183_begin
 patchSize_end:
 
 end start

@@ -83,6 +83,9 @@ qword	0x2B0	fangle
 qword	0x2B8	InertiaX
 qword	0x2C0	InertiaY
 
+qword	0x338	NET_LastInertiaY
+qword	0x340	
+
 word	0x356	ping
 byte	0x358	??
 byte	0x359	??
