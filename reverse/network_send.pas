@@ -1,3 +1,6 @@
+// note: this module will never ever compile, all this is just a crude decompilation of NFK binary
+// the author almost forgot pascal, so there are a lot of syntax errors in this code.
+
 type PQueue = ^TQueue;
 TQueue = record
     Active: boolean;                // +0x00
@@ -12,12 +15,14 @@ end;
 type PAPLEntry = ^TAPLEntry;
 TAPLEntry = record
     active: boolean;                // +0x00
+    packetType: byte;               // +0x01
     retriesLeft: byte;              // +0x04
     retryTime: Cardinal;            // +0x08
     ip_address: string;             // +0x0C
     port: word;                     // +0x10
     data: array [0..255] of byte;   // +0x12
     size: word;                     // +0x112
+    crc: Cardinal;                  // +0x114
 end;
 
 type PSVResendEntry = ^TSVResendEntry;
@@ -26,6 +31,26 @@ TSVResendEntry = record
     retryTime: Cardinal;            // +0x04
     data: array [0..255] of byte;   // +0x08
     size: word;                     // +0x108
+end;
+
+type PACKPacket = ^TACKPacket;
+TACKPacket = packed record
+    PacketType: byte;               // +0x00
+    CRC32: Cardinal;                // +0x01
+    PacketSize: byte;               // +0x05
+end;
+
+const
+    // packet types
+    PT_NORMAL       = 0;
+    PT_IMPORTANT    = 1;
+    PT_ACK          = 2;    // acknowledgement upon the receiving of important packet
+    PT_FLOOD        = 4;    // flood before connect
+type PPacketHeader = ^TPacketHeader;
+type TPacketHeader = packed record
+    PacketType: byte;
+    Count: byte;
+    Size: byte;
 end;
 
 var
@@ -64,7 +89,7 @@ var
     search_importance: byte;
     totalsize, count, highpacket: word;
     i: integer;
-    Header: THeader;
+    Header: TPacketHeader;
     dat, _dat: Pointer;
 const   MAXPACKETSIZE = 250;
 begin
@@ -99,6 +124,8 @@ begin
         if (totalsize > MAXPACKETSIZE) then
             AddMessage('WARNING: network queued size too big');
 
+        if (search_importance = 1) then
+            Header.PacketType := PT_IMPORTANT;
         // combine packets. write header
         Header.Count := count;                      // number of packets
         Header.Size := sizeof(header) + totalsize;  // total packet size.
@@ -122,9 +149,9 @@ begin
             end;
         end;
 
-        BNET1.SendData (0, dat^, Header.Size, search_ip, search_port);
+        BNET1.SendData(0, dat^, Header.Size, search_ip, search_port);
         if (search_importance <> 0) then
-            AddToAPL(dat, 0, search_ip, search_port, 1);
+            AddToAPL(dat, Header.Size, search_ip, search_port, 1);
         FreeMem(dat);
 
         // dead removal.
@@ -146,6 +173,106 @@ begin
                 end;
             end;
         until done;
+    end;
+end;
+
+procedure SendACK(crc32: Cardinal; size: byte; ip_address: ShortString; port: word);
+var
+    packet: TACKPacket;
+begin
+    packet.PacketType := PT_ACK;
+    packet.CRC32 := crc32;
+    packet.PacketSize := size;
+    BNET1.SendData(0, @packet, sizeof(packet), ip_address, port);
+end;
+
+function FindACKInAPLList(crc32: Cardinal; size: byte): boolean;
+var
+    i: integer;
+    aple: PAPLEntry;
+begin
+    Result := false;
+    if (APLList.Count = 0) then
+        exit;
+
+    for i := 0 to APLList.Count - 1 do
+    begin
+        aple := APLList.items[i];
+        if (aple^.active = 0) or (aple^.crc <> crc32) or (aple^.size <> size) or (aple^.packetType <> PT_ACK) then
+            continue;
+        Result := 1;
+    end;
+end;
+
+procedure RemoveFromAPLList(crc32: Cardinal; size: byte)
+var
+    i: integer;
+    aple: PAPLEntry;
+begin
+    if (APLList.Count = 0) then
+        exit;
+    for i := 0 to APLList.Count do
+    begin
+        aple := APLList.items[i];
+        if (aple^.active = 0) or (aple^.crc <> crc32) or (aple^.size <> size) then
+            continue;
+        aple^.active := 0;
+    end;
+end;
+
+procedure Network_ParsePacket(ip_address: string[15]; port: word)
+var
+    hdr: PPacketHeader;
+    Data: Pointer;
+    packetSize: byte;
+    packetCRC: Cardinal;
+    count, i: byte;
+begin
+    hdr := PPacketHeader(@ReadBuf);
+    if (hdr.PacketType = PT_FLOOD) then
+    begin
+        if (hdr.Count = 0) then
+            SendFloodTo(ip_address, port, 1);
+        if (hdr.Count = 1) then
+            SendFloodTo(ip_address, port, 2);
+        exit;
+    end;
+    if (hdr.PacketType = PT_IMPORTANT) then
+    begin
+        packetSize := hdr.Size;
+        packetCRC := crc32calc($FFFFFFFF, @ReadBuf, packetSize);
+        sendACK(packetCRC, packetSize, ip_address, port);
+        if (FindACKInAPLList(packetCRC, packetSize) <> 0) then  // anti double-message check
+            exit;
+        AddToAPL(@ReadBuf, packetSize, ip_address, port, PT_ACK);    // add ACK to the list for the check above to work
+    end
+    else
+    begin
+loc_47E9DC:
+        if (hdr.PacketType = PT_ACK) then
+        begin
+            RemoveFromAPLList(PACKPacket(@ReadBuf)^.CRC32, PACKPacket(@ReadBuf)^.PacketSize);
+            exit;
+        end;
+        if (hdr.PacketType <> PT_NORMAL) then
+            exit;
+    end;
+loc_47E9F3:
+    Data := @ReadBuf;
+    inc(Data);
+    count := byte(Data^);
+    inc(Data, 2);   // ignore hdr.PacketSize
+
+    for i := 0 to count - 1 do
+    begin
+        packetSize := byte(Data^);
+        if (packetSize = 0) then
+        begin
+            AddMessage('^1NETUNIT ERROR: ZERO SIZED DATA!');
+        end;
+        inc(Data);
+
+        MainForm.BNET_NFK_ReceiveData(Data, ip_address, port, packetSize);
     end;
 end;
 
@@ -172,7 +299,7 @@ begin
             if (entry^.retriesLeft = 0) then        // very much useless
                 entry^.active := 0;                 // very much useless
 
-            if (entry^.field_1 = 1) then
+            if (entry^.packetType = 1) then
             begin
                 BNET1.SendData(0, @entry^.data, entry^.size, entry^.ip_address, entry^.port);
                 entry^.retryTime := GAMETIME + GetPlayerResendTime(entry^.ip_address, entry^.port);
@@ -244,29 +371,29 @@ begin
 end;
 
 // 0x47E11C
-procedure AddToAPL(data: Pointer; size: integer; ip_address: string; port: word; param5: integer)
+procedure AddToAPL(data: Pointer; size: integer; ip_address: string; port: word; packetType: integer)
 var
     resendTime: word;
     aple: PAPLEntry;
 begin
-    if (OPT_SNAPS = 0) and (param5 = 1) then
+    if (OPT_SNAPS = 0) and (packetType = 1) then
         exit;
     resendTime := GetPlayerResendTime(ip_address, port);
     if (resendTime > 600) then exit;
     New(aple);
     aple^.active := 1;
-    aple^.field_1 := param5;
+    aple^.packetType := packetType;
     aple^.ip_address := ip_address;
     aple^.port := port;
     aple^.size := size;
     aple^.retriesLeft := OPT_SNAPS;
-    if (param5 = 2) then
+    if (packetType = 2) then
         aple^.retryTime := GAMETIME + 1200
     else
         aple^.retryTime := GAMETIME + resendTime;
     Move(data, aple^.data, size);
     aple^.crc := crc32calc($FFFFFFFF, data, size);
-    aple^.field_1 := param5;
+    aple^.packetType := packetType;
 
     APLList.Add(aple);
 end;
