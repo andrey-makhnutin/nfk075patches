@@ -58,7 +58,7 @@ var
     SVResendList: TList;            // 0x54DB64
 
 // 0x47E838
-procedure Network_AddToQueue(var Data; Size: word; IP : shortstring; important: byte; Port : word);
+procedure Network_AddToQueue(var Data; Size: word; IP : shortstring; Port : word; important: byte);
 var q: PQueue;
 begin
     if (Size = 0) then
