@@ -22,6 +22,9 @@ MMP_PLAYERPOSUPDATE_PACKED	equ	88
 Gametype_CTF	equ	3
 Gametype_DOM	equ	7
 
+;wd defs
+NETDEBUG_VERSION equ 1
+
 exeAddr MACRO va
 org va - 401000h
 ENDM
@@ -162,6 +165,8 @@ GetTickCount:
 	jmp	newGetTickCount
 patch128_end:
 
+exeAddr 406D70h
+LoadLibraryA:       nop
 exeAddr 406DC8h
 SetFilePointer:     nop
 exeAddr 406DE0h
@@ -191,6 +196,9 @@ TList_Get:	nop
 
 exeAddr	424894h
 lstrpart_space	db	' ', 0
+
+exeAddr 44B884h
+MessageDlg: nop
 
 exeAddr	451F80h
 TCustomWinSocket_SendText:	nop
@@ -544,6 +552,59 @@ nop
 nop
 patch20_end:
 
+; Network_AddToQueue hook
+exeAddr 47E857h
+patch184_begin:
+    push    [ebp + 8]   ; flags
+    push    [ebp + 0Ch] ; port
+    lea     eax, [ebp - 100h]
+    push    eax         ; ip_address
+    push    esi         ; size
+    push    edi         ; data
+    call    dword ptr [nd_AddToQueue]
+    test    eax, eax
+    jz      Network_AddToQueue_exit
+    jmp     Network_AddToQueue_tramp
+patch184_end:
+
+exeAddr 47E877h
+Network_AddToQueue_tramp2:
+
+exeAddr 47E8DFh
+Network_AddToQueue_exit:
+
+; Network_ParsePackets hook 1 (preprocessing)
+exeAddr 47E938h
+patch186_begin:
+    mov     ebp, edx
+    push    1           ; proc_state
+    push    edx         ; port
+    push    eax         ; ip_address
+    push    PReadBuf    ; data
+    call    dword ptr [nd_ReceiveData]
+    jmp     Network_ParsePackets_tramp1
+patch186_end:
+
+exeAddr 47E94Fh
+Network_ParsePackets_tramp1_2:
+
+exeAddr 47E9F3h
+patch188_begin:
+    push    2           ; proc_state
+    push    ebp         ; port
+    lea     eax, [esp + 0Fh]
+    push    eax         ; ip_address
+    push    esi         ; data
+    call    dword ptr [nd_ReceiveData]
+    jmp     Network_ParsePackets_tramp2
+patch188_end:
+
+exeAddr 47EA07h
+Network_ParsePackets_tramp2_2:
+
+exeAddr 47EA3Fh
+Network_ParsePackets_exit:
+
 IFDEF	_PINGER
 exeAddr 47EAD4h
 patch35_begin:
@@ -648,6 +709,7 @@ maxDist		dd	30.0
 
 PlasmaSplash	endp
 ; ==================================================================
+
 
 exeAddr 492731h
 patch164_begin:
@@ -1395,7 +1457,7 @@ msgCount			EQU		<[ebp - 30h]>	; Integer, size = 4
 	add		eax, 2		; 2 - sizeof(TPlayerPosUpdate_Packed)
 	push	eax
 	; allocate two buffers: one for all players data (count = <players count>) which is sent to spectators
-	;  and also holds position information of every player	
+	;  and also holds position information of every player
 	; and one buffer for all players data except one (count = <players count> - 1) to be sent to each player
 	; also initialize TPlayerPosUpdate_Packed header
 	call	GetMem
@@ -1412,7 +1474,7 @@ msgCount			EQU		<[ebp - 30h]>	; Integer, size = 4
 	mov		ecx, i
 	dec		ecx
 	mov		byte ptr [eax], cl	; put players count - 1 into TPlayerPosUpdate_Packed.Count
-	; loop through all the players and add msg to allPlayersData. 
+	; loop through all the players and add msg to allPlayersData.
 	; Store the size of each msg in eachMsgSize array and the index of each player in eachPlayerIndex array
 	mov		ebx, allPlayersData	; ebx - current msg pointer (inside buffer)
 	lea		edi, eachMsgSize	; edi - current msg size offset
@@ -1480,8 +1542,8 @@ playersLoopContinue:
 	mov		msgCount, edi
 	dec		edi
 	jz		onlyOnePlayer	; no need to send player pos updates to players, if there is only one player
-	; send each player positions of other players. Use single buffer otherPlayersData for sending, 
-	;  copy appropriate messages with info on other players positions from allPlayersData: 
+	; send each player positions of other players. Use single buffer otherPlayersData for sending,
+	;  copy appropriate messages with info on other players positions from allPlayersData:
 	;  first player will get 2nd, 3rd, 4th ... messages
 	;  second player will get 1st, 3rd, 4th ... messages
 	;  third player will get 1st, 2nd, 4th and so on
@@ -1490,7 +1552,7 @@ playersLoopContinue:
 	;  whose indexes are lesser than index of current player (to whom the message will be sent). In the right part there are
 	;  messages about players with indexes that are greater than that of the current player. For the first player, left part is
 	;  empty, and the right part contains info about all players but the first one.
-	
+
 	; initially rightPartSize will be equal to the size of all messages, it will be reduced right before the data is sent
 	mov		rightPartSize, ebx
 	; esi points to the message with current player's position. It will be ignored, and the rest will be copied to the right part
@@ -1519,7 +1581,7 @@ playersLoop2:
 	mov		eax, i
 	lea		edx, eachPlayerIndex
 	mov		al, [edx + eax]		; get current player's index
-	mov		eax, g_players[eax * 4]	
+	mov		eax, g_players[eax * 4]
 	cmp		byte ptr [eax + 274h], 1	; 274 - TPlayer.netobject
 	jnz		dontSend					; don't send anything to local players
 	; size of packet = right part size + left part size + 2
@@ -1540,7 +1602,7 @@ dontSend:
 	mov		cl, [ebx]			; count = current message's size
 	mov		eax, esi			; src = current player's message
 	add		leftPartSize, ecx	; increase leftPartSize
-	mov		edx, edi			; dest = right part buffer (it's ok, last message of the left part lies exactly 
+	mov		edx, edi			; dest = right part buffer (it's ok, last message of the left part lies exactly
 								;  where first message of right part was located)
 	add		esi, ecx			; move esi to next player's message
 	add		edi, ecx			; update right part pointer
@@ -1588,7 +1650,7 @@ noPlayers:
 	pop		esi
 	mov		esp, ebp
 	pop		ebp
-	retn	
+	retn
 BNETWORK_Sv_PlayerPosUpdate_packed	endp
 patch183_end:
 
@@ -1928,16 +1990,6 @@ patch32_begin:
 	retn
 patch32_end:
 
-IFNDEF _DEDIC
-exeAddr 4FE9F7h
-patch135_begin:
-	jmp		new_formCreateBegin
-patch135_end:
-ENDIF
-
-exeAddr 4FEA01h
-old_formCreateBegin:    nop
-
 exeAddr	4FEFB3h
 patch117_begin:
 	call	newPrintNFKEngineVersion
@@ -1953,6 +2005,18 @@ patch130_begin:
 	nop
 	nop
 patch130_end:
+
+exeAddr 4FF4BAh
+FormCreate_fail:    nop
+
+; FormCreate hook
+exeAddr 50026Eh
+patch135_begin:
+	jmp		FormCreate_extensions
+patch135_end:
+
+exeAddr 500275h
+FormCreate_after_extensions:    nop
 
 exeAddr	500697h
 patch131_begin:
@@ -2025,12 +2089,16 @@ patch52_end:
 
 exeAddr 509B49h
 patch39_begin:
-NFK_VERSION db 03,'077'
+IFDEF _TEST
+PROTO_VERSION db 03,'t77'
+ELSE
+PROTO_VERSION db 03,'077'
+ENDIF
 patch39_end:
 
 exeAddr	509FF2h
 patch41_begin:
-	mov		edx, offset NFK_VERSION
+	mov		edx, offset PROTO_VERSION
 patch41_end:
 
 IFDEF _DISABLED
@@ -2378,7 +2446,11 @@ exeAddr	544C04h
 patch73_begin:
 	dd		0FFFFFFFFh
 	dd		3
+IFDEF _TEST
+LNFK_VERSION	db	't77',0
+ELSE
 LNFK_VERSION	db	'077',0
+ENDIF
 patch73_end:
 
 patch121_begin:
@@ -2601,6 +2673,28 @@ patch138_begin:
 dd		new_BNET_OnDataReceived
 patch138_end:
 
+; TUDPDemon_SendData hook
+exeAddr 54701Bh
+patch190_begin:
+    push    eax
+    push    ecx
+    push    dword ptr [ebp + 8]     ; port
+    push    dword ptr [ebp + 0Ch]   ; ip_address
+    push    dword ptr [ebp + 10h]   ; size
+    push    ecx                     ; data
+    push    dword ptr [ebp + 4]     ; return address
+    call    [nd_SendData]
+    pop     ecx
+    pop     eax
+    jmp     TUDPDemon_SendData_tramp
+patch190_end:
+
+exeAddr 547037h
+TUDPDemon_SendData_tramp2:
+
+exeAddr 54704Ch
+TUDPDemon_SendData_exit:
+
 exeAddr	547054h
 old_BNET_OnDataReceived:	nop
 
@@ -2673,6 +2767,9 @@ MATCH_GAMETYPE		db	0
 
 exeAddr 54CDA0h
 STIME   dd  0
+
+exeAddr 54D748h
+PReadBuf    dd  0
 
 exeAddr 54E046h
 byte_54E046		db	0
@@ -2982,7 +3079,7 @@ newNFKPlanet_SendHello	proc
 	mov		edx, offset aV
 	call	PStrCpy
 	mov		eax, esp
-	mov		edx, offset NFK_VERSION
+	mov		edx, offset PLANET_VERSION
 	mov		cl, 12
 	call	PStrNCat
 	mov		eax, esp
@@ -3229,7 +3326,7 @@ patch116_end:
 align 16
 patch119_begin:
 newGetSystemVariable_getNfkversion	proc
-	mov		ecx, dword ptr NFK_VERSION
+	mov		ecx, dword ptr PROTO_VERSION
 	mov		[eax], ecx
 	retn
 newGetSystemVariable_getNfkversion	endp
@@ -3280,10 +3377,14 @@ exit_notOk:
 BNET_NFK_ReceiveData_PacketFilter	endp
 patch133_end:
 
-IFNDEF _DEDIC
 align 16
 patch136_begin:
-new_formCreateBegin:
+FormCreate_extensions proc
+    ;--- save registers
+    push    esi
+    push    edi
+    ;--- an attempt to fix multiprocessor bug, only for clients
+IFNDEF _DEDIC   
 	push	offset new_entryPointLibName
 	call	GetModuleHandleA
 	test	eax, eax
@@ -3304,24 +3405,106 @@ new_formCreateBegin:
 	push	1
 	push	eax
 	call	esi
-@@:
+@@: 
+ENDIF
 	;--- init new console variables
 	; cl_allowdownload and sv_allowdownload are 1 by default
 	mov		OPT_CL_ALLOWDOWNLOAD, 1
 	mov		OPT_SV_ALLOWDOWNLOAD, 1
+    ;--- load netdebug.dll
+    push    offset a_netdebugdll
+    call    LoadLibraryA
+    test    eax, eax
+    jnz     @F
+    push    0
+    mov     cx, 4
+    mov     dl, 1
+    mov     eax, offset a_cantLoadNetdebug
+    call    MessageDlg
+    mov     eax, offset a_cantLoadNetdebug
+    call    AddMessage
+    jmp     FormCreate_fail
+@@:
+    mov     esi, eax
+    push    offset a_getVersion
+    push    eax
+    call    GetProcAddress
+    test    eax, eax
+    jnz     @F
+    push    0
+    mov     cx, 4
+    mov     dl, 1
+    mov     eax, offset a_noNetdebugNoExports
+    call    MessageDlg
+    mov     eax, offset a_noNetdebugNoExports
+    call    AddMessage
+    jmp     FormCreate_fail
+@@:
+    call    eax
+    cmp     eax, NETDEBUG_VERSION
+    jz      @F
+    push    0
+    mov     cx, 4
+    mov     dl, 1
+    mov     eax, offset a_wrongNetdebugVersion
+    call    MessageDlg
+    mov     eax, offset a_wrongNetdebugVersion
+    call    AddMessage
+    jmp     FormCreate_fail
+@@:
+    push    offset a_getExports
+    push    esi
+    call    GetProcAddress
+    test    eax, eax
+    jnz     @F
+    push    0
+    mov     cx, 4
+    mov     dl, 1
+    mov     eax, offset a_noNetdebugNoExports
+    call    MessageDlg
+    mov     eax, offset a_noNetdebugNoExports
+    call    AddMessage
+    jmp     FormCreate_fail
+@@:
+    push    offset nd_AddToQueue
+    call    eax
+    ;--- restore registers
+    pop     edi
+    pop     esi
 	;--- old formCreate code
-	lea		edx, [ebp - 38h]
 	mov		eax, Application
-    jmp     old_formCreateBegin
+    jmp     FormCreate_after_extensions
 ;----------- datas ------------
+;--- multiprocessor fix datas, for clients only
+IFNDEF _DEDIC
 align 4
 new_entryPointLibName	db	'kernel32.dll', 0
 align 4
 new_entryPointProcName1	db	'SetProcessAffinityMask', 0
 align 4
 new_entryPointProcName2	db	'GetCurrentProcess', 0
-patch136_end:
 ENDIF
+
+align 4
+a_netdebugdll           db  'netdebug.dll', 0
+align 4
+a_getVersion            db  'getVersion', 0
+align 4
+a_getExports            db  'getExports', 0
+align 4
+                        dd  0FFFFFFFFh
+                        dd  23
+a_cantLoadNetdebug      db  'Can''t load netdebug.dll', 0
+align 4
+                        dd  0FFFFFFFFh
+                        dd  41
+a_wrongNetdebugVersion  db  'netdebug.dll has wrong version, monsieur.', 0
+align 4
+                        dd  0FFFFFFFFh
+                        dd  48
+a_noNetdebugNoExports   db  'netdebug.dll looks rather odd. This will not do.', 0
+FormCreate_extensions endp
+patch136_end:
 
 align 16
 patch137_begin:
@@ -4260,12 +4443,89 @@ exit:
 MapRestart_resetSpectators	endp
 patch180_end:
 
+align 4
+; trampoline from the hook in Network_AddToQueue
+patch185_begin:
+Network_AddToQueue_tramp    proc
+    test    si, si
+    jnz     @F
+    mov     eax, 0047E8F0h  ; '^1warning: zero sized data added to buffer.',0
+    call    AddMessage
+    jmp     Network_AddToQueue_exit
+@@: mov     eax, 124h
+    call    GetMem
+    mov     ebx, eax
+    mov     byte ptr [ebx], 1
+    jmp     Network_AddToQueue_tramp2
+Network_AddToQueue_tramp    endp
+patch185_end:
+
+align 4
+patch187_begin:
+Network_ParsePackets_tramp1:
+    lea     edi, [esp + 7]
+    xor     ecx, ecx
+    mov     cl, [esi]
+    inc     ecx
+    rep movsb
+    mov     esi, PReadBuf
+    mov     al, [esi]
+    cmp     al, 4
+    jmp     Network_ParsePackets_tramp1_2
+patch187_end:
+
+align 4
+patch189_begin:
+Network_ParsePackets_tramp2 proc
+    inc     esi
+    mov     al, [esi]
+    test    al, al
+    jbe     @F
+    add     esi, 2
+    mov     [esp + 6], al
+    jmp     Network_ParsePackets_tramp2_2
+@@: jmp     Network_ParsePackets_exit
+Network_ParsePackets_tramp2 endp
+patch189_end:
+
+align 4
+patch191_begin:
+TUDPDemon_SendData_tramp    proc
+    xor     edx, edx
+    mov     esi, [ebp + 0Ch]
+    lea     edi, [ebp - 100h]
+    push    ecx
+    xor     ecx, ecx
+    mov     cl, [esi]
+    inc     ecx
+    rep movsb
+    pop     ecx
+    cmp     byte ptr [eax + 54B6Ch], 0
+    jz      @F
+    push    edx
+    jmp     TUDPDemon_SendData_tramp2
+@@: jmp     TUDPDemon_SendData_exit
+TUDPDemon_SendData_tramp    endp
+patch191_end:
+
 align 16			; all additional data you could possibly need
 patch179_begin:
 	dd	0FFFFFFFFh
 	dd	8
+IFDEF _TEST
+LFULL_NFK_VERSION	db	't77 rev2', 0
+ELSE
 LFULL_NFK_VERSION	db	'077 rev2', 0
+ENDIF
+align 4
+PLANET_VERSION  db  03,'077',0
 patch179_end:
+
+align 4
+; addresses of netdebug.dll exports
+nd_AddToQueue   dd  0
+nd_SendData     dd  0
+nd_ReceiveData  dd  0
 
 align   4
 patchCount      dd      (patchSize_end - patchSize_begin) / 8
@@ -4525,12 +4785,10 @@ ENDIF
 				dd		patch133_end - patch133_begin
 				dd		patch134_begin				; new packet filter
 				dd		patch134_end - patch134_begin
-IFNDEF _DEDIC
-				dd		patch135_begin				; multiprocessor timer issues fix
+				dd		patch135_begin				; FormCreate hook
 				dd		patch135_end - patch135_begin
-				dd		patch136_begin				; multiprocessor timer issues fix
+				dd		patch136_begin				; FormCreate extensions
 				dd		patch136_end - patch136_begin
-ENDIF
 				dd		patch137_begin				; network error handler
 				dd		patch137_end - patch137_begin
 				dd		patch138_begin				; network error handler
@@ -4629,6 +4887,22 @@ ENDIF
 				dd		patch182_end - patch182_begin
 				dd		patch183_begin				; new BNETWORK_Sv_PlayerPosUpdate_packed function
 				dd		patch183_end - patch183_begin
+                dd      patch184_begin              ; Network_AddToQueue hook
+                dd      patch184_end - patch184_begin
+                dd      patch185_begin              ; Network_AddToQueue trampoline
+                dd      patch185_end - patch185_begin
+                dd      patch186_begin              ; Network_ParsePackets hook 1 (preprocessing)
+                dd      patch186_end - patch186_begin
+                dd      patch187_begin              ; Network_ParsePackets hook 1 trampoline
+                dd      patch187_end - patch187_begin
+                dd      patch188_begin              ; Network_ParsePackets hook 2 (postprocessing)
+                dd      patch188_end - patch188_begin
+                dd      patch189_begin              ; Network_ParsePackets hook 2 trampoline
+                dd      patch189_end - patch189_begin
+                dd      patch190_begin              ; TUDPDemon_SendData hook
+                dd      patch190_end - patch190_begin
+                dd      patch191_begin              ; TUDPDemon_SendData trampoline
+                dd      patch191_end - patch191_begin
 patchSize_end:
 
 end start
