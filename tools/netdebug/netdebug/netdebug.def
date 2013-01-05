@@ -1,0 +1,5 @@
+LIBRARY	"netdebug"
+
+EXPORTS
+getVersion=getVersion
+getExports=getExports
