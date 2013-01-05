@@ -1974,10 +1974,12 @@ patch125_end:
 exeAddr	4F38E4h
 AddMessage:		nop
 
+IFDEF _DISABLED
 exeAddr	4F7835h
 patch149_begin:
 	jmp		LOADMAP_ex
 patch149_end:
+ENDIF
 
 exeAddr	4F7840h
 LOADMAP_not_a_map:	nop
@@ -3986,6 +3988,7 @@ dd	18
 SaveCFG_ext	endp
 patch148_end:
 
+IFDEF _DISABLED
 align 16
 patch150_begin:
 LOADMAP_ex	proc		; can use ebx
@@ -4034,6 +4037,7 @@ exit:
 	jmp		LOADMAP_after_ex
 LOADMAP_ex	endp
 patch150_end:
+ENDIF
 
 align 16
 patch151_begin:
