@@ -1,6 +1,7 @@
     .686
     .model flat, stdcall
     option casemap :none   ; case sensitive
+    ;option LJMP
 	assume fs:nothing
 
 ;windows.inc goes here
@@ -552,6 +553,7 @@ nop
 nop
 patch20_end:
 
+IFDEF _TEST
 ; Network_AddToQueue hook
 exeAddr 47E857h
 patch184_begin:
@@ -566,6 +568,7 @@ patch184_begin:
     jz      Network_AddToQueue_exit
     jmp     Network_AddToQueue_tramp
 patch184_end:
+ENDIF
 
 exeAddr 47E877h
 Network_AddToQueue_tramp2:
@@ -573,6 +576,7 @@ Network_AddToQueue_tramp2:
 exeAddr 47E8DFh
 Network_AddToQueue_exit:
 
+IFDEF _TEST
 ; Network_ParsePackets hook 1 (preprocessing)
 exeAddr 47E938h
 patch186_begin:
@@ -584,10 +588,12 @@ patch186_begin:
     call    dword ptr [nd_ReceiveData]
     jmp     Network_ParsePackets_tramp1
 patch186_end:
+ENDIF
 
 exeAddr 47E94Fh
 Network_ParsePackets_tramp1_2:
 
+IFDEF _TEST
 exeAddr 47E9F3h
 patch188_begin:
     push    2           ; proc_state
@@ -598,6 +604,7 @@ patch188_begin:
     call    dword ptr [nd_ReceiveData]
     jmp     Network_ParsePackets_tramp2
 patch188_end:
+ENDIF
 
 exeAddr 47EA07h
 Network_ParsePackets_tramp2_2:
@@ -2037,6 +2044,58 @@ patch131_begin:
 	nop
 patch131_end:
 
+TMainForm_FormKeyUp proc
+PKey    EQU     <[ebp - 8]>
+res     EQU     <[ebp - 0Ch]>
+;...
+
+; here goes processing of key aliases
+exeAddr 5084E8h
+patch192_begin::
+    cmp     inmenu, 0
+    jnz     aliasProcessing_end
+    cmp     INCONSOLE, 0
+    jnz     aliasProcessing_end
+    mov     eax, PKey
+    movzx   eax, byte ptr [eax]
+    .if MESSAGEMODE != 0
+        cmp     ax, 13
+        jnz     aliasProcessing_end
+    .endif
+    mov     eax, KEYALIASES[eax * 4]
+    test    eax, eax
+    jz      aliasProcessing_end
+    mov     dx, [eax]
+    cmp     dx, '1'
+    jz      aliasProcessing_end
+    mov     HIST_DISABLE, 1
+    .if MSG_DISABLE != 0
+        mov     dword ptr res, 1
+    .else
+        mov     dword ptr res, 0
+    .endif
+    .if MATCH_DDEMOPLAY != 0
+        mov     MSG_DISABLE, 1
+    .else
+        mov     MSG_DISABLE, 0
+    .endif
+    mov     ALIASCOMMAND, 1
+    call    ApplyCommand
+    mov     ALIASCOMMAND, 0
+    mov     HIST_DISABLE, 0
+    .if dword ptr res == 1
+        mov     MSG_DISABLE, 1
+    .else
+        mov     MSG_DISABLE, 0
+    .endif
+aliasProcessing_end:
+    jmp     aliasProcessing_realend
+patch192_end::    
+exeAddr 5085C3h
+aliasProcessing_realend:
+;...
+TMainForm_FormKeyUp endp
+
 exeAddr	508B54h
 patch140_begin:	; ending of TestIP function
 	jmp		add_TestIP
@@ -2320,6 +2379,9 @@ GammaAnimation:	nop
 exeAddr	51D46Ch
 ALIAS_SaveAlias:	nop
 
+exeAddr 51DA5Ch
+ApplyCommand:   nop 
+
 exeAddr	51E8A0h
 patch112_begin:
 	call	newApplyCommand_on_reconnect
@@ -2448,11 +2510,7 @@ exeAddr	544C04h
 patch73_begin:
 	dd		0FFFFFFFFh
 	dd		3
-IFDEF _TEST
-LNFK_VERSION	db	't77',0
-ELSE
-LNFK_VERSION	db	'077',0
-ENDIF
+LPLANET_VERSION	db	'077',0
 patch73_end:
 
 patch121_begin:
@@ -2675,6 +2733,7 @@ patch138_begin:
 dd		new_BNET_OnDataReceived
 patch138_end:
 
+IFDEF _TEST
 ; TUDPDemon_SendData hook
 exeAddr 54701Bh
 patch190_begin:
@@ -2690,6 +2749,7 @@ patch190_begin:
     pop     eax
     jmp     TUDPDemon_SendData_tramp
 patch190_end:
+ENDIF
 
 exeAddr 547037h
 TUDPDemon_SendData_tramp2:
@@ -2746,6 +2806,13 @@ ENABLE_PROTECT	db	0
 exeAddr	54BF3Ch
 SPECTATOR_TIMEOUT	dw	7000
 
+exeAddr 54BF64h
+MSG_DISABLE     db  0
+align 4
+HIST_DISABLE    db  0
+align 4
+ALIASCOMMAND    db  0
+
 exeAddr	54C178h
 SYS_TEAMSELECT	db	0
 
@@ -2757,6 +2824,8 @@ pingsend_tick   dd  0
 
 exeAddr 54C2B8h
 MATCH_DRECORD	db	0
+align 4
+MATCH_DDEMOPLAY db  0
 
 exeAddr 54C7C4h
 SYS_MAXAIR  db  0
@@ -2769,6 +2838,12 @@ MATCH_GAMETYPE		db	0
 
 exeAddr 54CDA0h
 STIME   dd  0
+
+exeAddr 54D1A4h
+KEYALIASES  dd  256 dup(0)
+
+exeAddr 54D5F4h
+MESSAGEMODE db  0
 
 exeAddr 54D748h
 PReadBuf    dd  0
@@ -2790,6 +2865,9 @@ NFKPlanet_ServersList	dd	0
 
 exeAddr	552B8Dh
 MP_STEP	db	0
+
+exeAddr 5547CAh
+INCONSOLE   db  0
 
 exeAddr 5547CCh
 inmenu	db	0
@@ -3386,7 +3464,7 @@ FormCreate_extensions proc
     push    esi
     push    edi
     ;--- an attempt to fix multiprocessor bug, only for clients
-IFNDEF _DEDIC   
+IFNDEF _DEDIC
 	push	offset new_entryPointLibName
 	call	GetModuleHandleA
 	test	eax, eax
@@ -3407,7 +3485,7 @@ IFNDEF _DEDIC
 	push	1
 	push	eax
 	call	esi
-@@: 
+@@:
 ENDIF
 	;--- init new console variables
 	; cl_allowdownload and sv_allowdownload are 1 by default
@@ -4447,6 +4525,7 @@ exit:
 MapRestart_resetSpectators	endp
 patch180_end:
 
+IFDEF _TEST
 align 4
 ; trampoline from the hook in Network_AddToQueue
 patch185_begin:
@@ -4511,6 +4590,7 @@ TUDPDemon_SendData_tramp    proc
 @@: jmp     TUDPDemon_SendData_exit
 TUDPDemon_SendData_tramp    endp
 patch191_end:
+ENDIF
 
 align 16			; all additional data you could possibly need
 patch179_begin:
@@ -4523,6 +4603,10 @@ LFULL_NFK_VERSION	db	'077 rev2', 0
 ENDIF
 align 4
 PLANET_VERSION  db  03,'077',0
+align 4
+    dd  0FFFFFFFFh
+    dd  3
+LNFK_VERSION    db  '077', 0
 patch179_end:
 
 align 4
@@ -4891,6 +4975,7 @@ ENDIF
 				dd		patch182_end - patch182_begin
 				dd		patch183_begin				; new BNETWORK_Sv_PlayerPosUpdate_packed function
 				dd		patch183_end - patch183_begin
+IFDEF _TEST
                 dd      patch184_begin              ; Network_AddToQueue hook
                 dd      patch184_end - patch184_begin
                 dd      patch185_begin              ; Network_AddToQueue trampoline
@@ -4907,6 +4992,9 @@ ENDIF
                 dd      patch190_end - patch190_begin
                 dd      patch191_begin              ; TUDPDemon_SendData trampoline
                 dd      patch191_end - patch191_begin
+ENDIF
+                dd      patch192_begin              ; don't display binded commands while playing demo
+                dd      patch192_end - patch192_begin
 patchSize_end:
 
 end start
