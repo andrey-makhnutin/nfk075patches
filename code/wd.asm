@@ -1434,6 +1434,7 @@ BNETWORK_TMP_PlayerPosUpdate_copy_fill: nop
 exeAddr	4E4064h
 BNETWORK_TMP_PlayerPosUpdate_fill:	nop
 
+IFDEF _TEST
 exeAddr	4E4804h
 patch183_begin:
 BNETWORK_Sv_PlayerPosUpdate_packed	proc
@@ -1660,13 +1661,19 @@ noPlayers:
 	retn
 BNETWORK_Sv_PlayerPosUpdate_packed	endp
 patch183_end:
+ENDIF
 
-;exeAddr 4E5735h	removed in 077 rev3
-exeAddr 4E573Eh		; added in 077 rev3
+IFNDEF _TEST
 patch5_begin:
-;jmp     l4E5751	removed in 077 rev3
+exeAddr 4E5735h	;removed in 077 rev3
+jmp     l4E5751	;removed in 077 rev3
+patch5_end:
+ELSE
+patch5_begin:
+exeAddr 4E573Eh		; added in 077 rev3
 jmp		l4E5747		; added in 077 rev3
 patch5_end:
+ENDIF
 
 exeAddr 4E5747h
 l4E5747:	nop
@@ -2193,8 +2200,11 @@ BNET_NFK_ReceiveData_on_MMP_REGISTERPLAYER_dontShowWindow: nop
 
 exeAddr 50CA9Eh
 patch14_begin:
-;jmp     l50CAA7	removed in 077 rev3
+IFNDEF _TEST
+jmp     l50CAA7	;removed in 077 rev3
+ELSE
 jmp		l50CAE5		; added in 077 rev3
+ENDIF
 patch14_end:
 
 exeAddr 50CAA7h
@@ -2205,8 +2215,11 @@ l50CAE5:	nop
 
 exeAddr 50CAFDh
 patch15_begin:
-;jmp     l50CB06	removed in 077 rev3
+IFNDEF _TEST
+jmp     l50CB06	;removed in 077 rev3
+ELSE
 jmp		l50CB44		; added in 077 rev3
+ENDIF
 patch15_end:
 
 exeAddr 50CB06h
@@ -4973,9 +4986,9 @@ ENDIF
 ; here be 077 rev2
 				dd		patch182_begin				; OPT_BARTRAX1 check
 				dd		patch182_end - patch182_begin
+IFDEF _TEST
 				dd		patch183_begin				; new BNETWORK_Sv_PlayerPosUpdate_packed function
 				dd		patch183_end - patch183_begin
-IFDEF _TEST
                 dd      patch184_begin              ; Network_AddToQueue hook
                 dd      patch184_end - patch184_begin
                 dd      patch185_begin              ; Network_AddToQueue trampoline
