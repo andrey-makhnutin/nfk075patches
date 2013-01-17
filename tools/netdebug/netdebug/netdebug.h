@@ -19,3 +19,5 @@ typedef struct {
 
 NETDEBUG_API int __stdcall getVersion(void);
 NETDEBUG_API void __stdcall getExports(unsigned int *exports);
+
+void __stdcall sessionStart(unsigned int isServer);

@@ -11,6 +11,5 @@
 // Windows Header Files:
 #include <windows.h>
 
+#include "log.h"
 
-
-// TODO: reference additional headers your program requires here

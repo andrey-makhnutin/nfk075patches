@@ -195,6 +195,14 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\hook.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\log.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\netdebug.cpp"
 				>
 			</File>
@@ -229,7 +237,23 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
+				RelativePath=".\hook.h"
+				>
+			</File>
+			<File
+				RelativePath=".\log.h"
+				>
+			</File>
+			<File
 				RelativePath=".\netdebug.h"
+				>
+			</File>
+			<File
+				RelativePath=".\nfk.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SimpleStream.h"
 				>
 			</File>
 			<File
