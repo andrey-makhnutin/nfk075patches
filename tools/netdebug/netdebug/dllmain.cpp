@@ -20,6 +20,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 			return FALSE;
 		if (!hook((unsigned char *)0x536D27, sessionStart, 1, 9, NULL))
 			return FALSE;
+		if (!hook((unsigned char *)0x5078FF, sessionEnd, 0, 5, NULL))
+			return FALSE;
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:
 	case DLL_PROCESS_DETACH:

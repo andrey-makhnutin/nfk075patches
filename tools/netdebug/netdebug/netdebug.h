@@ -10,14 +10,9 @@
 #define NETDEBUG_API extern "C" __declspec(dllimport)
 #endif
 
-#pragma pack(push, 1)
-typedef struct {
-	unsigned char length;
-	char string[1];
-} ShortString;
-#pragma pack(pop)
-
 NETDEBUG_API int __stdcall getVersion(void);
 NETDEBUG_API void __stdcall getExports(unsigned int *exports);
 
 void __stdcall sessionStart(unsigned int isServer);
+void __stdcall sessionEnd(unsigned int ignore);
+

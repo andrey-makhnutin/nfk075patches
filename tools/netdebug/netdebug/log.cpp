@@ -26,6 +26,12 @@ void log(char *format, ...)
 	va_start(args, format);
 	vprintf(format, args);
 	vfprintf(logFile, format, args);
-	fflush(logFile);
+	//fflush(logFile);
 	va_end(args);
+}
+
+void closeLog()
+{
+	if (logFile)
+		fclose(logFile);
 }

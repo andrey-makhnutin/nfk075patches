@@ -3,5 +3,6 @@
 
 void setLogFilename(char *fn);
 void log(char *format, ...);
+void closeLog();
 
 #endif
