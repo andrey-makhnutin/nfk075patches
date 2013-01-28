@@ -24,7 +24,7 @@ Gametype_CTF	equ	3
 Gametype_DOM	equ	7
 
 ;wd defs
-NETDEBUG_VERSION equ 1
+NETDEBUG_VERSION equ 2
 
 exeAddr MACRO va
 org va - 401000h
@@ -557,20 +557,23 @@ IFDEF _TEST
 ; Network_AddToQueue hook
 exeAddr 47E857h
 patch184_begin:
+    push    esi
     push    [ebp + 8]   ; flags
     push    [ebp + 0Ch] ; port
     lea     eax, [ebp - 100h]
     push    eax         ; ip_address
-    push    esi         ; size
+    lea     eax, [esp + 0Ch]
+    push    eax         ; Psize
     push    edi         ; data
     call    dword ptr [nd_AddToQueue]
+    pop     esi
     test    eax, eax
     jz      Network_AddToQueue_exit
     jmp     Network_AddToQueue_tramp
 patch184_end:
 ENDIF
 
-exeAddr 47E877h
+exeAddr 47E880h
 Network_AddToQueue_tramp2:
 
 exeAddr 47E8DFh
@@ -1664,13 +1667,13 @@ patch183_end:
 ENDIF
 
 IFNDEF _TEST
-patch5_begin:
 exeAddr 4E5735h	;removed in 077 rev3
+patch5_begin:
 jmp     l4E5751	;removed in 077 rev3
 patch5_end:
 ELSE
-patch5_begin:
 exeAddr 4E573Eh		; added in 077 rev3
+patch5_begin:
 jmp		l4E5747		; added in 077 rev3
 patch5_end:
 ENDIF
@@ -2526,8 +2529,8 @@ patch73_begin:
 LPLANET_VERSION	db	'077',0
 patch73_end:
 
-patch121_begin:
 exeAddr	544C10h
+patch121_begin:
 aNFKPlanetTooOld	db		42, 'visit official website for new NFK update.', 0
 exeAddr 544C50h
 	db		42, 'This NFK Planet version is too old. Please', 0
@@ -3504,6 +3507,7 @@ ENDIF
 	; cl_allowdownload and sv_allowdownload are 1 by default
 	mov		OPT_CL_ALLOWDOWNLOAD, 1
 	mov		OPT_SV_ALLOWDOWNLOAD, 1
+IFDEF _TEST
     ;--- load netdebug.dll
     push    offset a_netdebugdll
     call    LoadLibraryA
@@ -3561,6 +3565,7 @@ ENDIF
 @@:
     push    offset nd_AddToQueue
     call    eax
+ENDIF
     ;--- restore registers
     pop     edi
     pop     esi
@@ -4552,6 +4557,8 @@ Network_AddToQueue_tramp    proc
     call    GetMem
     mov     ebx, eax
     mov     byte ptr [ebx], 1
+    lea     eax, [ebx + 1]
+    lea     edx, [ebp - 100h]
     jmp     Network_AddToQueue_tramp2
 Network_AddToQueue_tramp    endp
 patch185_end:
