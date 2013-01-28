@@ -273,6 +273,7 @@ loc_47E9F3:
         inc(Data);
 
         MainForm.BNET_NFK_ReceiveData(Data, ip_address, port, packetSize);
+        inc(Data, packetSize);
     end;
 end;
 
