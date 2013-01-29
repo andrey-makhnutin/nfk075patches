@@ -1395,6 +1395,18 @@ patch72_begin:
 	call 	DrawMenu_newAskForInvite
 patch72_end:
 
+; stop using BNET_REALSERVERPORT, use BNET_SERVERPORT instead
+exeAddr 4CA2EAh
+patch194_begin:
+    cmp     BNET_SERVERPORT, 29991
+patch194_end:
+
+; stop using BNET_REALSERVERPORT, use BNET_SERVERPORT instead
+exeAddr 4CA326h
+patch195_begin:
+    movzx   eax, BNET_SERVERPORT
+patch195_end:
+
 exeAddr	4CA52Dh
 patch152_begin:
 	call	DrawMenu_ex
@@ -2359,6 +2371,12 @@ str_droppedByTimeout	db	0	; shortstring ' ^7^ndropped by timeout.'
 
 exeAddr	516E54h
 str_Spectator	db	0	; shortstring 'Spectator '
+
+; stop using BNET_REALSERVERPORT, use BNET_SERVERPORT instead
+exeAddr 5175F3h
+patch193_begin:
+    mov     BNET_SERVERPORT, ax
+patch193_end:
 
 exeAddr	517609h
 patch67_begin:
@@ -5015,6 +5033,12 @@ IFDEF _TEST
 ENDIF
                 dd      patch192_begin              ; don't display binded commands while playing demo
                 dd      patch192_end - patch192_begin
+                dd      patch193_begin              ; stop using BNET_REALSERVERPORT, use BNET_SERVERPORT instead
+                dd      patch193_end - patch193_begin
+                dd      patch194_begin              ; same as above
+                dd      patch194_end - patch194_begin
+                dd      patch195_begin              ; same as above
+                dd      patch195_end - patch195_begin
 patchSize_end:
 
 end start
