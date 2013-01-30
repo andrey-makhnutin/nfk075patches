@@ -8,6 +8,7 @@ typedef struct _peCtx
 	unsigned long baseAddress;
 	unsigned int sectionCount;
 	IMAGE_SECTION_HEADER *sections;
+	IMAGE_NT_HEADERS32 *peHeader;
 } peCtx;
 
 typedef struct _patchInfo
@@ -68,6 +69,9 @@ int applyPatch(char *nfk, peCtx *nfkCtx, char *patch, peCtx *patchCtx)
 			memcpy(nfk + nfkAddr, patch + patchAddr, patches[i].patchLength);
 			_putts(_T("OK"));
 		}
+
+		// also update timestamp
+		nfkCtx->peHeader->FileHeader.TimeDateStamp = _time32(NULL);
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
@@ -99,6 +103,7 @@ int getCtx(char *fileBuf, unsigned int fileLength, peCtx *ctx)
 			return 3;
 		}
 		ntHdr = (IMAGE_NT_HEADERS32 *)(fileBuf + dosHdr->e_lfanew);
+		ctx->peHeader = ntHdr;
 		if (ntHdr->Signature != 0x00004550)
 		{
 			return 4;
@@ -213,12 +218,28 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	applyPatch(nfk, &nfkCtx, patch, &patchCtx);
+
+	UnmapViewOfFile(nfk);
+	CloseHandle(nfkMapping);
+	nfkMapping = NULL;
+	CloseHandle(nfkFile);
+	// update file modification time
+	nfkFile = CreateFile(newName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	{
+		DWORD t = 0x505A4D;
+		DWORD d;
+		SetFilePointer(nfkFile, 0, 0, FILE_BEGIN);
+		if (!WriteFile(nfkFile, &t, 4, &d, NULL))
+			_tprintf(_T("wot\n"));
+	}
 	
 cleanup:
 	if (nfkFile != INVALID_HANDLE_VALUE) CloseHandle(nfkFile);
 	if (patchFile != INVALID_HANDLE_VALUE) CloseHandle(patchFile);
 	if (nfkMapping != NULL) CloseHandle(nfkMapping);
 	if (patchMapping != NULL) CloseHandle(patchMapping);
+
+
 
 	return 0;
 }
