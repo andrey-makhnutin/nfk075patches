@@ -3363,7 +3363,7 @@ patch111_begin:
 newApplyCommand_on_reconnect	proc
 	push	0
 	mov		edx, esp
-	movzx	eax, BNET_REALSERVERPORT
+	movzx	eax, BNET_SERVERPORT
 	call	IntToStr
 	mov		eax, [ebp - 8ECh]
 	mov		edx, [esp]
@@ -3480,7 +3480,7 @@ BNET_NFK_ReceiveData_PacketFilter	proc
 	lea		edx, BNET_GAMEIP
 	call	PStrCmp
 	jnz		exit_notOk
-	movzx	eax, word ptr BNET_REALSERVERPORT
+	movzx	eax, word ptr BNET_SERVERPORT
 	cmp		eax, Port
 	jnz		exit_notOk
 exit_ok:
