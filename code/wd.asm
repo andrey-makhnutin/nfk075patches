@@ -615,12 +615,10 @@ Network_ParsePackets_tramp2_2:
 exeAddr 47EA3Fh
 Network_ParsePackets_exit:
 
-IFDEF	_PINGER
 exeAddr 47EAD4h
 patch35_begin:
 newTPlayerSize	dd	370h
 patch35_end:
-ENDIF
 
 exeAddr 47F794h
 ismultip:   nop
@@ -2288,13 +2286,40 @@ on_MMP_PING_do_distribute:
 	call	CopyMemory
 	lea		eax, [ebp - 2FFh]	;buf
 	push	eax
-	push	[ebp + 8]
+	push	[ebp + 8]           ;DataSize
 	push	0
 	mov		ecx, [ebp + 0Ch]	;Port
 patch33_end:
 
 exeAddr	513BC9h
-on_MMP_PING_no_distribute:	nop
+patch196_begin:
+on_MMP_PING_no_distribute   proc
+    xor     ecx, ecx
+    mov     edi, [ebp - 8]  ;data
+    mov     dx, [edi + 3]   ;TMP_Ping.DXID
+playersLoop:
+    mov     eax, g_players[ecx * 4]
+    test    eax, eax
+    jz      playersLoopContinue
+    cmp     dx, [eax + 28Ch]    ;TPlayer.DXID
+    jnz     playersLoopContinue
+    mov     dx, [edi + 1]
+    mov     [eax + 356h], dx
+    mov     edx, [edi + 5]
+    mov     [eax + 368h], edx
+    movzx   edx, word ptr [edi + 9]
+    mov     ecx, gametime
+    sub     edx, ecx
+    mov     [eax + 36Ch], edx
+    jmp     playersLoopBreak
+playersLoopContinue:
+    inc     ecx
+    cmp     cl, 8
+    jnz     playersLoop
+playersLoopBreak:
+    jmp     on_MMP_PING_answer
+on_MMP_PING_no_distribute   endp
+patch196_end:
 
 IFDEF _PINGER
 exeAddr 513BCEh
@@ -2338,6 +2363,9 @@ patch34_end::
 playerloop_break:
 onMMP_PING2	endp
 ENDIF
+
+exeAddr 513C36h
+on_MMP_PING_answer: nop
 
 exeAddr 513D75h
 patch167_begin:
@@ -3773,9 +3801,8 @@ on_MMP_PING_distribute	proc	; jump on on_MMP_PING_do_distribute if ping distribu
 	Port	EQU		<[ebp + 0Ch]>	; integer
 ;-----------------------------------
 	mov		edi, data
-	mov		eax, [edi + 1]
+	mov		eax, [edi + 1]      ; read TMP_Ping.Ping and TMP_Ping.DXID into one dword
 	cmp		eax, 0FFFFFFFFh
-	; if no spectator, distribute
 	jnz		on_MMP_PING_do_distribute
 	; if spectator, find out which one was that
 	mov		eax, SpectatorList
@@ -4704,8 +4731,10 @@ ENDIF
 IFDEF	_PINGER
 				dd		patch34_begin				; new pinger
 				dd		patch34_end - patch34_begin
+ENDIF
 				dd		patch35_begin				; new pinger
 				dd		patch35_end - patch35_begin
+IFDEF	_PINGER
 				dd		patch36_begin				; new pinger
 				dd		patch36_end - patch36_begin
 ENDIF
@@ -5039,6 +5068,8 @@ ENDIF
                 dd      patch194_end - patch194_begin
                 dd      patch195_begin              ; same as above
                 dd      patch195_end - patch195_begin
+                dd      patch196_begin              ; new ping handler
+                dd      patch196_end - patch196_begin
 patchSize_end:
 
 end start
