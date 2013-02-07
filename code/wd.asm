@@ -11,20 +11,32 @@ FILE_END                             equ 2
 
 ;nfk defs
 g_players   equ     00757B80h
-MMP_PING    equ     26
-MMP_INVITE  equ		78
-MMP_LOBBY_ANSWERPING		equ		73
-MMP_LOBBY_GAMESTATE_RESULT	equ		85
-MMP_SPECTATORDISCONNECT		equ		38
-MMP_IAMQUIT	equ		75
-MMP_CTF_EVENT_FLAGDROP	equ	35h
-MMP_PLAYERPOSUPDATE_PACKED	equ	88
+MMP_CLIENTSHOT              equ     11
+MMP_CLIENTRAILSHOT          equ     13
+MMP_PING                    equ     26
+MMP_INVITE                  equ     78
+MMP_LOBBY_ANSWERPING        equ     73
+MMP_LOBBY_GAMESTATE_RESULT  equ     85
+MMP_SPECTATORDISCONNECT     equ     38
+MMP_IAMQUIT                 equ     75
+MMP_CTF_EVENT_FLAGDROP      equ     35h
+MMP_PLAYERPOSUPDATE_PACKED  equ     88
+
+WEAPON_GAUNTLET         equ     0
+WEAPON_MACHINEGUN       equ     1
+WEAPON_SHOTGUN          equ     2
+WEAPON_GRENADELAUNCHER  equ     3
+WEAPON_ROCKETLAUNCHER   equ     4
+WEAPON_SHAFT            equ     5
+WEAPON_RAILGUN          equ     6
+WEAPON_PLASMAGUN        equ     7
+WEAPON_BFG              equ     8
 
 Gametype_CTF	equ	3
 Gametype_DOM	equ	7
 
 ;wd defs
-NETDEBUG_VERSION equ 2
+NETDEBUG_VERSION equ 1
 
 exeAddr MACRO va
 org va - 401000h
@@ -72,7 +84,9 @@ Move:		nop			;params
 							;eax - source
 							;edx - destination
 							;ecx - count
-
+exeAddr 402AB4h
+Round:      nop
+                            
 exeAddr	402AC0h
 TRUNC:		nop
 
@@ -194,6 +208,12 @@ l410A04:    nop
 
 exeAddr	410B14h
 TList_Get:	nop
+
+exeAddr 422414h
+Math__RadToDeg: nop
+
+exeAddr 422470h
+Math__ArcTan2:  nop
 
 exeAddr	424894h
 lstrpart_space	db	' ', 0
@@ -2064,6 +2084,279 @@ patch131_begin:
 	nop
 patch131_end:
 
+FireRocket proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 50166Ah
+patch197_begin::
+    mov     esi, f
+    mov     al, [esi + 1Fh]     ;TPlayer.ammo_rl
+    mov     ah, WEAPON_ROCKETLAUNCHER
+    call    sendClientShotMsg
+    jmp     exit
+    
+align 16
+; this will be a common code for message sending. It has 7 copies in NFK code, all differs with just 2 variables: ammo left and weapon index
+;   before jumping here, put ammo left to al and weapon index to ah. Also put player address in esi
+sendClientShotMsg::
+    ; better use our own stack frame here
+    push    ebp
+    mov     ebp, esp
+    sub     esp, 20h
+;----------- local variables -------
+msgSize     EQU     <[ebp - 4]>
+weapony     EQU     <[ebp - 8]>
+;-----------------------------------
+    mov     edi, esp                    ; address for message struct will be in edi
+    mov     word ptr msgSize, 15h       ; new TMP_ClientShot size
+    ; rail shot messages are a bit different from other weapon's shot messages
+    .if ah == WEAPON_RAILGUN
+        mov     byte ptr [edi], MMP_CLIENTRAILSHOT
+        ; there's no index field, but a railcolor field, and it's stored in cl at this point
+        mov     [edi + 1], cl       ;TMP_RailShot.Color
+    .else
+        mov     byte ptr [edi], MMP_CLIENTSHOT  ;TMP_ClientShot.Data
+        mov     [edi + 1], ah       ;TMP_ClientShot.Index
+    .endif
+    inc     al
+    mov     [edi + 2], al           ;TMP_ClientShot.Ammo
+    mov     ax, [esi + 28Ch]        ;TPlayer.DXID
+    mov     [edi + 3], ax           ;TMP_ClientShot.DXID
+    
+    fld     qword ptr [esi + 48h]   ;TPlayer.clippixel
+    call    Round
+    mov     [edi + 5], ax           ;TMP_ClientShot.clippixel
+    
+    fld     qword ptr [esi + 290h]  ;TPlayer.x
+    fstp    dword ptr [edi + 7]     ;TMP_ClientShot.x
+    
+    .if byte ptr [esi + 0FAh] != 0  ;TPlayer.crouch
+        mov     dword ptr weapony, 3
+    .else
+        mov     dword ptr weapony, -5
+    .endif
+    fild    dword ptr weapony
+    fadd    qword ptr [esi + 298h]  ;TPlayer.y
+    fstp    dword ptr [edi + 0Bh]   ;TMP_ClientShot.y
+    
+    .if byte ptr [esi + 0Ch] == 1 || byte ptr [esi + 0Ch] == 3  ;TPlayer.dir
+        fld     qword ptr [esi + 298h]  ;TPlayer.y
+        fsub    qword ptr [esi + 2A8h]  ;TPlayer.cy
+        fild    dword ptr weapony
+        faddp   st(1), st
+        add     esp, -0Ch
+        fstp    tbyte ptr [esp]
+        fld     qword ptr [esi + 290h]  ;TPlayer.x
+        fsub    qword ptr [esi + 2A0h]  ;TPlayer.cx
+        add     esp, -0Ch
+        fstp    tbyte ptr [esp]
+        call    Math__ArcTan2
+        add     esp, -0Ch
+        fstp    tbyte ptr [esp]
+        call    Math__RadToDeg
+        fsub    single90
+        fstp    dword ptr [edi + 0Fh]   ;TMP_ClientShot.fangle
+    .else
+        fld     qword ptr [esi + 298h]  ;TPlayer.y
+        fsub    qword ptr [esi + 2A8h]  ;TPlayer.cy
+        fild    dword ptr weapony
+        faddp   st(1), st
+        add     esp, -0Ch
+        fstp    tbyte ptr [esp]
+        fld     qword ptr [esi + 290h]  ;TPlayer.x
+        fsub    qword ptr [esi + 2A0h]  ;TPlayer.cx
+        fsub    single1
+        add     esp, -0Ch
+        fstp    tbyte ptr [esp]
+        call    Math__ArcTan2
+        add     esp, -0Ch
+        fstp    tbyte ptr [esp]
+        call    Math__RadToDeg
+        fsub    single90
+        fstp    dword ptr [edi + 0Fh]   ;TMP_ClientShot.fangle
+    .endif
+    mov     ax, word ptr shotCounter
+    mov     [edi + 13h], ax
+    inc     shotCounter
+    push    1   ; important message
+    mov     edx, edi
+    mov     cx, msgSize
+    mov     eax, mainform
+    call    BNETSendData2HOST
+    mov     esp, ebp
+    pop     ebp
+    retn
+patch197_end::
+
+;...
+
+exeAddr 50203Fh
+exit:   nop
+
+;----------- datas -----------------
+exeAddr 502048h
+single90    dd  90.0
+single1     dd  1.0
+FireRocket endp
+
+FireBFG proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 50211Eh
+patch198_begin::
+    mov     esi, f
+    mov     al, [esi + 23h]     ;TPlayer.ammo_bfg
+    mov     ah, WEAPON_BFG
+    call    sendClientShotMsg
+    jmp     exit
+patch198_end::
+;...
+exeAddr 502AABh
+exit:   nop
+;...
+FireBFG endp
+
+FirePlasma proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 502B8Ah
+patch199_begin::
+    mov     esi, f
+    mov     al, [esi + 22h]     ;TPlayer.ammo_pl
+    mov     ah, WEAPON_PLASMAGUN
+    call    sendClientShotMsg
+    jmp     exit
+patch199_end::
+;...
+exeAddr 50361Bh
+exit:   nop
+;...
+FirePlasma endp
+
+FireRail proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 503715h
+patch204_begin::
+    mov     esi, f
+    mov     al, [esi + 21h]     ;TPlayer.ammo_rg
+    mov     ah, WEAPON_RAILGUN
+    ; rail shot message is very much like other weapons shot messages, it just doesn't specify the weaponID (b/c it's useless)
+    ;  and instead of weaponID it sends the color of the rail. Put the color in cl, and sendClientShotMsg will figure everything out
+    .if byte ptr [esi + 0Dh] == 0
+        mov     cl, OPT_RAILCOLOR1
+    .else
+        mov     cl, OPT_RAILCOLOR2
+    .endif
+    call    sendClientShotMsg
+    jmp     exit
+patch204_end::
+;...
+exeAddr 50401Fh
+exit:   nop
+;...
+FireRail endp
+
+FireShotGun proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 5040FDh
+patch200_begin::
+    mov     esi, f
+    mov     al, [esi + 1Dh]     ;TPlayer.ammo_sg
+    mov     ah, WEAPON_SHOTGUN
+    call    sendClientShotMsg
+    jmp     exit
+patch200_end::
+;...
+exeAddr 50484Ah
+exit:   nop
+;...
+FireShotGun endp
+
+FireShaft proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 50512Bh
+patch201_begin::
+    mov     esi, f
+    mov     al, [esi + 20h]     ;TPlayer.ammo_sh
+    mov     ah, WEAPON_SHAFT
+    call    sendClientShotMsg
+    jmp     exit
+patch201_end::
+;...
+exeAddr 50597Ch
+exit:   nop
+;...
+FireShaft endp
+
+FireMachine proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 505F71h
+patch202_begin::
+    mov     esi, f
+    mov     al, [esi + 1Ch]     ;TPlayer.ammo_mg
+    mov     ah, WEAPON_MACHINEGUN
+    call    sendClientShotMsg
+    jmp     exit
+patch202_end::
+;...
+exeAddr 506619h
+exit:   nop
+;...
+FireMachine endp
+
+FireGren proc
+;----------- local variables -------
+f       EQU     <[ebp - 4]>
+;----------- codes -----------------
+;... this is not an entire function code
+
+; add fireID at the end of the MMP_CLIENTSHOT message and make it important
+exeAddr 5066FAh
+patch203_begin::
+    mov     esi, f
+    mov     al, [esi + 1Eh]     ;TPlayer.ammo_gl
+    mov     ah, WEAPON_GRENADELAUNCHER
+    call    sendClientShotMsg
+    jmp     exit
+patch203_end::
+;...
+exeAddr 507695h
+exit:   nop
+;...
+FireGren endp
+
 TMainForm_FormKeyUp proc
 PKey    EQU     <[ebp - 8]>
 res     EQU     <[ebp - 0Ch]>
@@ -2889,6 +3182,13 @@ MATCH_DRECORD	db	0
 align 4
 MATCH_DDEMOPLAY db  0
 
+exeAddr 54C634h
+OPT_RAILCOLOR1  db  0
+align 4
+OPT_RAILCOLOR2  db  0
+align 4
+OPT_SYNC        db  0
+
 exeAddr 54C7C4h
 SYS_MAXAIR  db  0
 
@@ -2985,6 +3285,7 @@ mapRequestErrorCount	db	0
 align 4
 mapRequestSize	dd	0
 mapRequestDownloaded	dd	0
+shotCounter     dd  0
 
 exeAddr	75E2F0h
 imp_GetTickCount	dd	0
@@ -5070,6 +5371,22 @@ ENDIF
                 dd      patch195_end - patch195_begin
                 dd      patch196_begin              ; new ping handler
                 dd      patch196_end - patch196_begin
+                dd      patch197_begin              ; make a rocket shot an important message, add shotID to the message
+                dd      patch197_end - patch197_begin
+                dd      patch198_begin              ; make a BFG shot an important message, add shotID to the message
+                dd      patch198_end - patch198_begin
+                dd      patch199_begin              ; make a plasma shot an important message, add shotID to the message
+                dd      patch199_end - patch199_begin
+                dd      patch200_begin              ; make a shotgun shot an important message, add shotID to the message
+                dd      patch200_end - patch200_begin
+                dd      patch201_begin              ; make a shaft shot an important message, add shotID to the message
+                dd      patch201_end - patch201_begin
+                dd      patch202_begin              ; make a machinegun shot an important message, add shotID to the message
+                dd      patch202_end - patch202_begin
+                dd      patch203_begin              ; make a grenade launcher shot an important message, add shotID to the message
+                dd      patch203_end - patch203_begin
+                dd      patch204_begin              ; make a railgun shot an important message, add shotID to the message
+                dd      patch204_end - patch204_begin
 patchSize_end:
 
 end start
