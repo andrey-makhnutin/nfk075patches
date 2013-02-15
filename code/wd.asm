@@ -73,6 +73,10 @@ exeAddr 402702h
 l402702:    nop
 exeAddr 402706h
 l402706:    nop
+
+exeAddr 402710h
+ReallocMem: nop
+
 exeAddr 402716h
 l402716:    nop
 exeAddr 402748h
@@ -105,8 +109,14 @@ PStrCmp:	nop
 exeAddr	402C88h
 RandInt:	nop
 
+exeAddr 403430h
+HandleAnyException: nop
+
 exeAddr	4036E4h
 HandleFinally:	nop
+
+exeAddr 40378Ch
+DoneExcept: nop
 
 exeAddr 403B14h
 l403B14h:   nop
@@ -224,12 +234,10 @@ MessageDlg: nop
 exeAddr	451F80h
 TCustomWinSocket_SendText:	nop
 
-IFDEF _DISABLED
 exeAddr 45304Fh
 patch30_begin:
 call    patch29_begin
 patch30_end:
-ENDIF
 
 exeAddr	46968Ch
 patch103_begin:
@@ -353,6 +361,7 @@ patch98_end:
 
 exeAddr	46B978h
 patch97_begin:
+TPowerGraph_ResetRect:
 newTPowerGraph_ResetRect	proc
 	mov		eax, 1
 	retn
@@ -646,6 +655,9 @@ ismultip:   nop
 exeAddr	47FAACh
 NFKPlanet_GetTok2:	nop
 
+exeAddr 47FC70h
+strpar: nop
+
 exeAddr	47FDFCh
 BD_Avail:	nop
 
@@ -660,6 +672,9 @@ BNETSendData2HOST:  nop
 
 exeAddr	484EB4h
 GetNumberOfPlayers:	nop
+
+exeAddr 484EF4h
+getNetPlayersCount: nop
 
 exeAddr 486E74h
 SpawnBubble:        nop
@@ -1351,6 +1366,31 @@ BNET_DirectConnect	endp
 exeAddr	4BB720h
 DrawWindow:	nop
 
+exeAddr 4BC575h
+patch207_begin:
+    mov     eax, mainform
+    mov     eax, [eax + 2D4h]   ;TMainForm.PowerGraph
+    call    TPowerGraph_ResetRect
+    mov     eax, mainform
+    mov     eax, [eax + 2D4h]   ;TMainForm.PowerGraph
+    mov     edx, [eax + 21D8h]  ;TPowerDraw.Width
+    sub     edx, 640
+    sar     edx, 1
+    jns     @F
+    adc     edx, 0
+@@: mov     [eax + 3ED8h], edx  ;TPowerDraw.offsetx
+    mov     edx, [eax + 21DCh]  ;TPowerDraw.Height
+    sub     edx, 480
+    sar     edx, 1
+    jns     @F
+    adc     edx, 0
+@@: mov     [eax + 3EDCh], edx  ;TPowerDraw.offsety
+    jmp     loc_4BC5F1
+patch207_end:
+
+exeAddr 4BC5F1h
+loc_4BC5F1: nop
+
 exeAddr 4C05D6h
 patch3_begin:
 IFDEF _DEDIC
@@ -1713,6 +1753,18 @@ l4E5747:	nop
 
 exeAddr 4E5751h
 l4E5751:    nop
+
+exeAddr 4E9098h
+patch205_begin:
+resolutionCheck proc
+    jmp     newResolutionCheck
+resolutionCheck endp
+patch205_end:
+
+exeAddr 4E9120h
+    dd  0FFFFFFFFh
+    dd  45
+str_r_mode_is_not_allowed    db '^5r_mode ^7is ^1NOT ALLOWED ^7on this server.',0
 
 exeAddr	4E9164h
 patch132_begin:
@@ -2734,6 +2786,9 @@ GammaAnimation:	nop
 exeAddr	51D46Ch
 ALIAS_SaveAlias:	nop
 
+exeAddr 51D7F4h
+changeResolution:   nop
+
 exeAddr 51DA5Ch
 ApplyCommand:   nop 
 
@@ -2754,6 +2809,11 @@ exeAddr	51ED33h
 patch118_begin:
 	call	newPrintNFKEngineVersion
 patch118_end:
+
+exeAddr 5203F3h
+patch210_begin:
+    jmp     newRModeHandler
+patch210_end:
 
 exeAddr 524B55h
 patch178_begin:
@@ -2779,6 +2839,9 @@ applyCommand_after_ext:	nop
 
 exeAddr	53A41Ch
 applyCommand_exit:	nop
+
+exeAddr 53BB54h
+lstrpart_x      db      'x', 0
 
 exeAddr	53CC9Ch
 lstrpart_doublequote	db '"', 0
@@ -3189,6 +3252,9 @@ OPT_RAILCOLOR2  db  0
 align 4
 OPT_SYNC        db  0
 
+exeAddr 54C7A0h
+OPT_SV_ALLOW_R_MODE db  0
+
 exeAddr 54C7C4h
 SYS_MAXAIR  db  0
 
@@ -3245,6 +3311,10 @@ gy			dd	0
 exeAddr	555B00h
 starttime	dd	0
 
+exeAddr 555B30h
+nextResolutionCheckTime dd  0
+RMODE_ALLOWED   db  0
+
 exeAddr 555B48h
 objects	dd	0
 
@@ -3274,7 +3344,8 @@ OPT_CL_ALLOWDOWNLOAD	db	0
 OPT_SV_ALLOWDOWNLOAD	db	0
 downloadingMap	db	0
 align 4
-sleepDelay	dd	0
+sleepDelay	db	0
+align 4
 mapBuffer	dd	0
 mapRequestTimeout	dd	0
 mapRequestTimeoutCount	db	0
@@ -3286,6 +3357,15 @@ align 4
 mapRequestSize	dd	0
 mapRequestDownloaded	dd	0
 shotCounter     dd  0
+
+resolutionsCount    dd  0
+resolutionsCapacity dd  0
+resolutionsArray    dd  0
+
+; addresses of netdebug.dll exports
+nd_AddToQueue   dd  0
+nd_SendData     dd  0
+nd_ReceiveData  dd  0
 
 exeAddr	75E2F0h
 imp_GetTickCount	dd	0
@@ -3335,21 +3415,22 @@ mov     eax, [esi + 8]
 retn
 patch27_end:
 
-IFDEF	_DISABLED
 align 16
 patch29_begin:
-mov		eax, sleepDelay
-inc		eax
-and		eax, 07Fh
-mov		sleepDelay, eax
-jnz		@F
-push    1
-call    Sleep
-@@:
-call	TRUNC
-retn
+    mov     al, OPT_NETSPECTATOR
+    test    al, al
+    jz      @F
+    mov		al, sleepDelay
+    inc		al
+    and		al, 07Fh
+    mov		sleepDelay, al
+    jnz		@F
+    push    1
+    call    Sleep
+    @@:
+    call	TRUNC
+    retn
 patch29_end:
-ENDIF
 
 IFDEF _PINGER
 align 16
@@ -3913,6 +3994,8 @@ IFDEF _TEST
     push    offset nd_AddToQueue
     call    eax
 ENDIF
+    ;--- enumerate all possible display resolutions
+    call    getValidResolutions
     ;--- restore registers
     pop     edi
     pop     esi
@@ -4958,6 +5041,307 @@ TUDPDemon_SendData_tramp    endp
 patch191_end:
 ENDIF
 
+align 4
+patch206_begin:
+newResolutionCheck proc
+    mov     eax, STIME
+    cmp     eax, nextResolutionCheckTime
+    ja      @F
+    retn
+@@: add     eax, 5000
+    mov     nextResolutionCheckTime, eax
+    cmp     MATCH_DDEMOPLAY, 0
+    jnz     exit
+    call    ismultip
+    .if (al == 0) || (al == 1 && OPT_SV_ALLOW_R_MODE != 0) || (al == 2 && RMODE_ALLOWED != 0)
+        jmp     exit
+    .endif
+    .if (OPT_NETSPECTATOR != 0)
+        jmp     exit
+    .endif
+    call    getNetPlayersCount
+    cmp     al, 1
+    jb      exit    
+    mov     eax, mainform
+    mov     ecx, [eax + 2D4h]
+    mov     edx, 480
+    mov     eax, 640
+    .if dword ptr [ecx + 21D8h] == eax && dword ptr [ecx + 21DCh] == edx
+        jmp     exit
+    .endif
+    call    changeResolution
+    mov     eax, offset str_r_mode_is_not_allowed
+    call    AddMessage
+exit:
+    retn
+newResolutionCheck endp
+patch206_end:
+
+align 4
+patch208_begin:
+getValidResolutions proc
+;----------- locals -------
+mode        equ     <[ebp - 9Ch]>
+;----------- codes --------
+    push    ebp
+    mov     ebp, esp
+    push    19
+    pop     ecx
+@@: push    0
+    push    0
+    dec     ecx
+    jnz     @B
+    push    0               ; alloc and zero space for DEVMODE struct (0x9C or 19*8 + 4 bytes) delphi style
+    push    esi             ; save edi and esi cause we'll use them
+    push    edi
+    
+    push    offset libName
+    call    GetModuleHandleA
+    push    offset funcName
+    push    eax
+    call    GetProcAddress
+    mov     esi, eax
+    mov     word ptr [mode + 24h], 9Ch     ;DEVMODEA.dmSize
+    xor     edi, edi
+enumLoop:
+    lea     eax, mode
+    push    eax
+    push    edi
+    push    0
+    call    esi
+    test    eax, eax
+    jz      exit
+@@: mov     ecx, resolutionsCount
+    shl     ecx, 3
+    mov     edx, resolutionsCapacity
+    lea     eax, resolutionsArray
+    sub     edx, 8
+    cmp     ecx, edx
+    jle     @F
+    add     edx, 108h
+    mov     resolutionsCapacity, edx
+    call    ReallocMem
+    jmp     @B
+@@: mov     eax, [eax]
+    add     eax ,ecx
+    test    ecx, ecx
+    mov     edx, [mode + 6Ch]
+    mov     ecx, [mode + 70h]
+    jz      @F
+    .if (edx == [eax - 8]) && (ecx == [eax - 4])
+        jmp     enumLoopContinue
+    .endif
+@@: mov     [eax], edx
+    mov     [eax + 4], ecx
+    inc     resolutionsCount
+enumLoopContinue: 
+    inc     edi
+    jmp     enumLoop
+exit:    
+    pop     edi
+    pop     esi
+    mov     esp, ebp
+    pop     ebp
+    retn
+    
+;------ datas -----------
+align 4
+libName     db  'user32.dll', 0
+align 4
+funcName    db  'EnumDisplaySettingsA', 0
+getValidResolutions endp
+
+align   4
+isResolutionValid   proc
+    push    esi
+    mov     esi, edx
+    mov     edx, eax
+    mov     ecx, resolutionsCount
+    mov     eax, resolutionsArray
+    test    ecx, ecx
+    jz      exit
+resLoop:
+    .if [eax] == edx && [eax + 4] == esi
+        jmp     exit
+    .endif
+    add     eax, 8
+    dec     ecx
+    jnz     resLoop
+exit:
+    mov     eax, ecx
+    pop     esi
+    retn
+isResolutionValid   endp
+patch208_end:
+
+align 4
+patch209_begin:
+newRModeHandler proc
+;------ locals ----------
+s           equ     <[ebp - 4]>
+par1        equ     <[ebp - 50h]>
+par2        equ     <[ebp-2B14h]>
+lstr_temp   equ     <[ebp-2B18h]>
+lstr_temp2  equ     <[ebp-2B1Ch]>
+lstr_rmode  equ     <[ebp-2B20h]>
+;------ codes -----------
+    ; allocate additional strings
+    push    0   ; par2      ebp-2B14h
+    push    0   ; tempStr   ebp-2B18h
+    push    0   ; tempStr2  ebp-2B1Ch
+    push    0   ; rmode     ebp-2B20h
+    mov     eax, par1
+    test    eax, eax
+    jz      printUsage
+    lea     ecx, par2
+    mov     edx, 2
+    mov     eax, s
+    call    strpar
+    mov     eax, par2
+    test    eax, eax
+    jz      oneParam
+    ; set up SEH
+    
+    xor     eax, eax
+    push    ebp
+    push    offset exceptHandler
+    push    dword ptr fs:[eax]
+    mov     fs:[eax], esp
+    mov     eax, par2
+    call    StrToInt
+    mov     edi, eax
+    push    eax
+    mov     eax, par1
+    call    StrToInt
+    mov     esi, eax
+    pop     edx
+    call    isResolutionValid
+    test    eax, eax
+    .if ZERO?
+        lea     eax, unsupportedResolution
+        call    AddMessage
+    .else
+        mov     eax, esi
+        mov     edx, edi
+        call    changeResolution
+    .endif   
+    xor     eax, eax
+    pop     edx
+    pop     ecx
+    pop     ecx
+    mov     fs:[0], edx
+    jmp     exit
+    
+exceptHandler:
+    jmp     HandleAnyException
+    call    DoneExcept
+    jmp     invalidInput
+    
+oneParam:
+    mov     eax, par1
+    mov     ax, [eax]
+    test    ah, ah
+    jnz     invalidInput
+    .if al == '1'
+        mov     eax, 640
+        mov     edx, 480
+        call    changeResolution
+        jmp     exit
+    .elseif al == '2'
+        mov     eax, 800
+        mov     edx, 600
+        call    changeResolution
+        jmp     exit
+    .elseif al == '3'
+        mov     eax, 1024
+        mov     edx, 768
+        call    changeResolution
+        jmp     exit
+    .endif
+    
+invalidInput:
+    mov     eax, offset badInputStr
+    call    AddMessage
+printUsage:
+    mov     eax, offset usageStr1
+    call    AddMessage
+    mov     eax, offset usageStr2
+    call    AddMessage
+    ; determine current rmode
+    push    1
+    pop     eax
+    lea     edx, lstr_rmode
+    call    IntToStr
+    mov     eax, mainform
+    mov     eax, [eax + 2D4h]
+    mov     edx, [eax + 21D8h]
+    mov     ecx, [eax + 21DCh]
+    mov     eax, lstr_rmode
+    .if (edx == 640) && (ecx == 480)
+        jmp     @F
+    .elseif (edx == 800) && (ecx == 600)
+        mov     byte ptr [eax], '2'
+        jmp     @F
+    .elseif (edx == 1024) && (ecx == 768)
+        mov     byte ptr [eax], '3'
+        jmp     @F
+    .else
+        mov     eax, edx
+        lea     edx, lstr_temp
+        push    ecx
+        call    IntToStr
+        pop     eax
+        lea     edx, lstr_temp2
+        call    IntToStr
+        push    lstr_temp
+        push    offset lstrpart_x
+        push    lstr_temp2
+        lea     eax, lstr_rmode
+        mov     edx, 3
+        call    LStrCatN
+    .endif
+@@:
+    push    offset currentStr
+    push    lstr_rmode
+    push    offset lstrpart_doublequote
+    lea     eax, lstr_temp
+    mov     edx, 3
+    call    LStrCatN
+    mov     eax, lstr_temp
+    call    AddMessage
+
+exit:
+    ; free and cleanup additional strings
+    lea     eax, lstr_rmode
+    mov     edx, 4
+    call    LStrArrayClr
+    add     esp, 10h
+    jmp     applyCommand_exit
+
+;------ datas -----------
+align 4
+    dd  0FFFFFFFFh
+    dd  13
+badInputStr db  'Invalid input', 0
+align 4
+    dd  0FFFFFFFFh
+    dd  51
+usageStr1   db  'Usage: "r_mode <mode>" or "r_mode <width> <height>"', 0
+align 4
+    dd  0FFFFFFFFh
+    dd  56
+usageStr2   db  'mode is a number: 1 - 640x480; 2 - 800x600; 3 - 1024x768', 0
+align 4
+    dd  0FFFFFFFFh
+    dd  19
+currentStr  db  'Current r_mode is "', 0
+align   4
+    dd  0FFFFFFFFh
+    dd  32
+unsupportedResolution   db  'This resolution is not supported', 0
+newRModeHandler endp
+patch209_end:
+
 align 16			; all additional data you could possibly need
 patch179_begin:
 	dd	0FFFFFFFFh
@@ -4975,11 +5359,6 @@ align 4
 LNFK_VERSION    db  '077', 0
 patch179_end:
 
-align 4
-; addresses of netdebug.dll exports
-nd_AddToQueue   dd  0
-nd_SendData     dd  0
-nd_ReceiveData  dd  0
 
 align   4
 patchCount      dd      (patchSize_end - patchSize_begin) / 8
@@ -5017,12 +5396,10 @@ ENDIF
                 dd      patch27_end - patch27_begin
                 dd      patch28_begin				; memory leak fix
                 dd      patch28_end - patch28_begin
-IFDEF	_DISABLED
                 dd      patch29_begin				; sleeping pill
                 dd      patch29_end - patch29_begin
                 dd      patch30_begin				; sleeping pill
                 dd      patch30_end - patch30_begin
-ENDIF
 				dd		patch31_begin				; new pinger
 				dd		patch31_end - patch31_begin
 				dd		patch32_begin				; alt-tab fix
@@ -5387,6 +5764,18 @@ ENDIF
                 dd      patch203_end - patch203_begin
                 dd      patch204_begin              ; make a railgun shot an important message, add shotID to the message
                 dd      patch204_end - patch204_begin
+                dd      patch205_begin              ; jump to new resolution check procedure
+                dd      patch205_end - patch205_begin
+                dd      patch206_begin              ; new resolution check procedure
+                dd      patch206_end - patch206_begin
+                dd      patch207_begin              ; r_mode >= 2 D3D8 exception fix
+                dd      patch207_end - patch207_begin
+                dd      patch208_begin              ; getValidResolutions procedure
+                dd      patch208_end - patch208_begin
+                dd      patch209_begin
+                dd      patch209_end - patch209_begin
+                dd      patch210_begin
+                dd      patch210_end - patch210_begin
 patchSize_end:
 
 end start
