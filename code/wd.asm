@@ -3361,6 +3361,8 @@ shotCounter     dd  0
 resolutionsCount    dd  0
 resolutionsCapacity dd  0
 resolutionsArray    dd  0
+maxWidth            dd  0
+maxHeight           dd  0
 
 ; addresses of netdebug.dll exports
 nd_AddToQueue   dd  0
@@ -5133,6 +5135,12 @@ enumLoop:
     .endif
 @@: mov     [eax], edx
     mov     [eax + 4], ecx
+    .if maxWidth < edx
+        mov     maxWidth, edx
+    .endif
+    .if maxHeight < ecx
+        mov     maxHeight, ecx
+    .endif
     inc     resolutionsCount
 enumLoopContinue: 
     inc     edi
@@ -5210,21 +5218,32 @@ lstr_rmode  equ     <[ebp-2B20h]>
     mov     eax, par2
     call    StrToInt
     mov     edi, eax
-    push    eax
     mov     eax, par1
     call    StrToInt
     mov     esi, eax
-    pop     edx
+    mov     eax, mainform
+    mov     eax, [eax + 2D4h]
+    cmp     byte ptr [eax + 21C4h], 1
+    mov     ecx, eax
+    mov     eax, esi
+    mov     edx, edi
+    jnz     notFullscreen
     call    isResolutionValid
     test    eax, eax
-    .if ZERO?
-        lea     eax, unsupportedResolution
-        call    AddMessage
-    .else
-        mov     eax, esi
-        mov     edx, edi
-        call    changeResolution
-    .endif   
+    jz      resolutionError
+resolutionOk:
+    mov     eax, esi
+    mov     edx, edi
+    call    changeResolution
+    jmp     exitTry
+notFullscreen:
+    .if (eax <= maxWidth) && (edx <= maxHeight) && (eax >= 320) && (edx >= 240)
+        jmp     resolutionOk
+    .endif
+resolutionError:
+    lea     eax, unsupportedResolution
+    call    AddMessage
+exitTry:
     xor     eax, eax
     pop     edx
     pop     ecx
