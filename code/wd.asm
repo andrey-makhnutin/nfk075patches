@@ -228,6 +228,18 @@ Math__ArcTan2:  nop
 exeAddr	424894h
 lstrpart_space	db	' ', 0
 
+exeAddr 431344h
+TWinControl_GetHandle:  nop
+
+exeAddr 442BE0h
+TCustomForm_SetClientWidth: nop
+
+exeAddr 442C10h
+TCustomForm_SetClientHeigth:    nop
+
+exeAddr 443400h
+TCustomForm_SetBorderStyle: nop
+
 exeAddr 44B884h
 MessageDlg: nop
 
@@ -319,8 +331,18 @@ newTAGFImage_LoadFromVTDb	proc
 newTAGFImage_LoadFromVTDb	endp
 patch105_end:
 
+exeAddr 46AFC0h
+TPowerGraph_SetWidth:   nop
+
+exeAddr 46AFD0h
+TPowerGraph_SetHeigth:  nop
+
+exeAddr 46B000h
+TPowerGraph_SetFullscreen: nop
+
 exeAddr	46B06Ch
 patch107_begin:
+TPowerGraph_Initialize:
 newTPowerGraph_Initialize	proc
 	xor		eax, eax
 	retn
@@ -329,6 +351,7 @@ patch107_end:
 
 exeAddr	46B518h
 patch108_begin:
+TPowerGraph_Finalize:
 newTPowerGraph_Finalize	proc
 	xor		eax, eax
 	retn
@@ -2091,6 +2114,9 @@ patch32_begin:
 	retn
 patch32_end:
 
+exeAddr 4FB45Ch
+TMainForm_LoadGrafix:   nop
+
 exeAddr	4FEFB3h
 patch117_begin:
 	call	newPrintNFKEngineVersion
@@ -2783,6 +2809,9 @@ patch147_end:
 exeAddr	51C320h
 GammaAnimation:	nop
 
+exeAddr 51CD74h
+reloadPlayerModels: nop
+
 exeAddr	51D46Ch
 ALIAS_SaveAlias:	nop
 
@@ -2814,6 +2843,12 @@ exeAddr 5203F3h
 patch210_begin:
     jmp     newRModeHandler
 patch210_end:
+
+exeAddr 5206CDh
+patch211_begin:
+    call    newGofullscreen
+    jmp     applyCommand_exit
+patch211_end:
 
 exeAddr 524B55h
 patch178_begin:
@@ -2857,6 +2892,9 @@ lstrpart_dq_is_set_to_dq	db '" is set to "', 0
 
 exeAddr 542134h
 ApplyHCommand:	nop
+
+exeAddr 542700h
+TMainForm_FinalizeAll:  nop
 
 exeAddr 5428E8h
 patch174_begin:
@@ -5359,6 +5397,62 @@ align   4
     dd  32
 unsupportedResolution   db  'This resolution is not supported', 0
 newRModeHandler endp
+
+align 4
+newGofullscreen proc
+    push    esi
+    push    edi
+    mov     esi, mainform
+    mov     eax, esi
+    call    TMainForm_FinalizeAll
+    mov     edi, [esi + 2D4h]
+    mov     eax, edi
+    call    TPowerGraph_Finalize
+    ; now check the resolution
+    mov     eax, [edi + 21D8h]
+    mov     edx, [edi + 21DCh]
+    call    isResolutionValid
+    test    eax, eax
+    jnz     resolutionIsOK
+    mov     eax, edi
+    mov     edx, 640
+    call    TPowerGraph_SetWidth
+    mov     eax, edi
+    mov     edx, 480
+    call    TPowerGraph_SetHeigth
+    mov     eax, esi
+    mov     edx, 640
+    call    TCustomForm_SetClientWidth
+    mov     eax, esi
+    mov     edx, 480
+    call    TCustomForm_SetClientHeigth
+    mov     eax, offset resolutionWasReset
+    call    AddMessage
+resolutionIsOK:
+    mov     eax, edi
+    mov     dl, 1
+    call    TPowerGraph_SetFullscreen
+    xor     edx, edx
+    mov     eax, esi
+    call    TCustomForm_SetBorderStyle
+    mov     eax, esi
+    call    TWinControl_GetHandle
+    mov     edx, eax
+    mov     eax, edi
+    call    TPowerGraph_Initialize
+    mov     eax, esi
+    call    TMainForm_LoadGrafix
+    call    reloadPlayerModels
+    pop     edi
+    pop     esi
+    retn
+    
+align 4
+    dd  0FFFFFFFFh
+    dd  37
+resolutionWasReset  db  'The resolution was changed to 640x480', 0
+    
+newGofullscreen endp
 patch209_end:
 
 align 16			; all additional data you could possibly need
@@ -5795,6 +5889,8 @@ ENDIF
                 dd      patch209_end - patch209_begin
                 dd      patch210_begin
                 dd      patch210_end - patch210_begin
+                dd      patch211_begin
+                dd      patch211_end - patch211_begin
 patchSize_end:
 
 end start
