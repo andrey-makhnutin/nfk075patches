@@ -2858,6 +2858,14 @@ patch178_end:
 exeAddr 524B6Dh
 ApplyCommand_onRestart_playersOk:
 
+exeAddr 533D8Bh
+patch212_begin:
+    jmp     loc_533D9B
+patch212_end:
+
+exeAddr 533D9Bh
+loc_533D9B:
+
 exeAddr	536BF9h
 patch173_begin:
 	jmp		ApplyCommand_onMap_ex
@@ -2889,6 +2897,11 @@ lstrpart_dq_is_dq		db '" is "', 0
 
 exeAddr	53E1B8h
 lstrpart_dq_is_set_to_dq	db '" is set to "', 0
+
+exeAddr 53FD0Dh
+patch213_begin:
+    db      '255.', 0
+patch213_end:
 
 exeAddr 542134h
 ApplyHCommand:	nop
@@ -5891,6 +5904,10 @@ ENDIF
                 dd      patch210_end - patch210_begin
                 dd      patch211_begin
                 dd      patch211_end - patch211_begin
+                dd      patch212_begin
+                dd      patch212_end - patch212_begin
+                dd      patch213_begin
+                dd      patch213_end - patch213_begin
 patchSize_end:
 
 end start
