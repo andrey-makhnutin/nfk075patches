@@ -2898,9 +2898,11 @@ lstrpart_dq_is_dq		db '" is "', 0
 exeAddr	53E1B8h
 lstrpart_dq_is_set_to_dq	db '" is set to "', 0
 
-exeAddr 53FD0Dh
+exeAddr 53FCE0h
 patch213_begin:
-    db      '255.', 0
+    dd      0FFFFFFFFh
+    dd      41
+    db      '". Default is "10". Possible value 1-255.', 0
 patch213_end:
 
 exeAddr 542134h
