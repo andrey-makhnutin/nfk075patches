@@ -90,7 +90,7 @@ Move:		nop			;params
 							;ecx - count
 exeAddr 402AB4h
 Round:      nop
-                            
+
 exeAddr	402AC0h
 TRUNC:		nop
 
@@ -683,6 +683,15 @@ strpar: nop
 
 exeAddr	47FDFCh
 BD_Avail:	nop
+
+exeAddr 483850h
+initBotdllAddress:  nop
+
+; BD_Init extensions call
+exeAddr 483CC8h
+patch214_begin:
+    call    BD_Init_ext
+patch214_end:
 
 exeAddr 484920h
 BNETSendData2All:	nop
@@ -2176,7 +2185,7 @@ patch197_begin::
     mov     ah, WEAPON_ROCKETLAUNCHER
     call    sendClientShotMsg
     jmp     exit
-    
+
 align 16
 ; this will be a common code for message sending. It has 7 copies in NFK code, all differs with just 2 variables: ammo left and weapon index
 ;   before jumping here, put ammo left to al and weapon index to ah. Also put player address in esi
@@ -2204,14 +2213,14 @@ weapony     EQU     <[ebp - 8]>
     mov     [edi + 2], al           ;TMP_ClientShot.Ammo
     mov     ax, [esi + 28Ch]        ;TPlayer.DXID
     mov     [edi + 3], ax           ;TMP_ClientShot.DXID
-    
+
     fld     qword ptr [esi + 48h]   ;TPlayer.clippixel
     call    Round
     mov     [edi + 5], ax           ;TMP_ClientShot.clippixel
-    
+
     fld     qword ptr [esi + 290h]  ;TPlayer.x
     fstp    dword ptr [edi + 7]     ;TMP_ClientShot.x
-    
+
     .if byte ptr [esi + 0FAh] != 0  ;TPlayer.crouch
         mov     dword ptr weapony, 3
     .else
@@ -2220,7 +2229,7 @@ weapony     EQU     <[ebp - 8]>
     fild    dword ptr weapony
     fadd    qword ptr [esi + 298h]  ;TPlayer.y
     fstp    dword ptr [edi + 0Bh]   ;TMP_ClientShot.y
-    
+
     .if byte ptr [esi + 0Ch] == 1 || byte ptr [esi + 0Ch] == 3  ;TPlayer.dir
         fld     qword ptr [esi + 298h]  ;TPlayer.y
         fsub    qword ptr [esi + 2A8h]  ;TPlayer.cy
@@ -2481,7 +2490,7 @@ patch192_begin::
     .endif
 aliasProcessing_end:
     jmp     aliasProcessing_realend
-patch192_end::    
+patch192_end::
 exeAddr 5085C3h
 aliasProcessing_realend:
 ;...
@@ -2573,6 +2582,16 @@ patch70_end:
 
 exeAddr	50A40Dh
 BNET_ReceiveData_on_MMP_GAMESTATEANSWER_afterSpawnServer: nop
+
+exeAddr 50AC12h
+patch216_begin:
+    call    BNET_NFK_ReceiveData_on_MMP_SPECTATORDISCONNECT_ext
+patch216_end:
+
+exeAddr 50AE31h
+patch215_begin:
+    call    BNET_NFK_ReceiveData_on_MMP_SPECTATORCONNECT_ext
+patch215_end:
 
 exeAddr	50B3A4h
 patch129_begin:
@@ -2819,7 +2838,7 @@ exeAddr 51D7F4h
 changeResolution:   nop
 
 exeAddr 51DA5Ch
-ApplyCommand:   nop 
+ApplyCommand:   nop
 
 exeAddr	51E8A0h
 patch112_begin:
@@ -3421,6 +3440,10 @@ maxHeight           dd  0
 nd_AddToQueue   dd  0
 nd_SendData     dd  0
 nd_ReceiveData  dd  0
+
+; new botdll functions
+DLL_SYSTEM_SpectatorConnect dd  0
+DLL_SYSTEM_SpectatorDisconnect  dd  0
 
 exeAddr	75E2F0h
 imp_GetTickCount	dd	0
@@ -5116,7 +5139,7 @@ newResolutionCheck proc
     .endif
     call    getNetPlayersCount
     cmp     al, 1
-    jb      exit    
+    jb      exit
     mov     eax, mainform
     mov     ecx, [eax + 2D4h]
     mov     edx, 480
@@ -5149,7 +5172,7 @@ mode        equ     <[ebp - 9Ch]>
     push    0               ; alloc and zero space for DEVMODE struct (0x9C or 19*8 + 4 bytes) delphi style
     push    esi             ; save edi and esi cause we'll use them
     push    edi
-    
+
     push    offset libName
     call    GetModuleHandleA
     push    offset funcName
@@ -5195,16 +5218,16 @@ enumLoop:
         mov     maxHeight, ecx
     .endif
     inc     resolutionsCount
-enumLoopContinue: 
+enumLoopContinue:
     inc     edi
     jmp     enumLoop
-exit:    
+exit:
     pop     edi
     pop     esi
     mov     esp, ebp
     pop     ebp
     retn
-    
+
 ;------ datas -----------
 align 4
 libName     db  'user32.dll', 0
@@ -5262,7 +5285,7 @@ lstr_rmode  equ     <[ebp-2B20h]>
     test    eax, eax
     jz      oneParam
     ; set up SEH
-    
+
     xor     eax, eax
     push    ebp
     push    offset exceptHandler
@@ -5303,12 +5326,12 @@ exitTry:
     pop     ecx
     mov     fs:[0], edx
     jmp     exit
-    
+
 exceptHandler:
     jmp     HandleAnyException
     call    DoneExcept
     jmp     invalidInput
-    
+
 oneParam:
     mov     eax, par1
     mov     ax, [eax]
@@ -5330,7 +5353,7 @@ oneParam:
         call    changeResolution
         jmp     exit
     .endif
-    
+
 invalidInput:
     mov     eax, offset badInputStr
     call    AddMessage
@@ -5461,13 +5484,97 @@ resolutionIsOK:
     pop     edi
     pop     esi
     retn
-    
+
 align 4
     dd  0FFFFFFFFh
     dd  37
 resolutionWasReset  db  'The resolution was changed to 640x480', 0
-    
+
 newGofullscreen endp
+
+align 4
+BD_Init_ext proc
+    call    initBotdllAddress   ; execute the destroyed call
+    mov     edx, offset aNewDllProc1
+    mov     eax, offset DLL_SYSTEM_SpectatorConnect
+    call    initBotdllAddress
+    mov     edx, offset aNewDllProc2
+    mov     eax, offset DLL_SYSTEM_SpectatorDisconnect
+    call    initBotdllAddress
+    retn
+align 4
+aNewDllProc1    db  'DLL_SYSTEM_SpectatorConnect', 0
+align 4
+aNewDllProc2    db  'DLL_SYSTEM_SpectatorDisconnect', 0
+BD_Init_ext endp
+
+align 4
+BNET_NFK_ReceiveData_on_MMP_SPECTATORCONNECT_ext    proc
+;---------- local vars -----------
+Port        equ     <[ebp+0Ch]>
+data        equ     <[ebp-8]>
+FromIP      equ     <[ebp-14Ah]>
+;---------- code -----------------
+    call    AddMessage      ; execute the destroyed call
+    mov     eax, DLL_SYSTEM_SpectatorConnect
+    test    eax, eax
+    jz      exit
+    ; alloc 2 strings
+    push    0           ; ip
+    push    0           ; name
+    mov     edx, data
+    lea     edx, [edx + 1]  ;TMP_SpectatorJoin.netname
+    mov     eax, esp
+    call    StringToLStr    ; init name
+    lea     edx, FromIP
+    lea     eax, [esp + 4]
+    call    StringToLStr
+    mov     eax, [esp]
+    mov     edx, [esp + 4]
+    mov     ecx, Port
+    call    DLL_SYSTEM_SpectatorConnect
+    mov     eax, esp
+    mov     edx, 2
+    call    LStrArrayClr
+    pop     ecx
+    pop     ecx
+exit:
+    retn
+BNET_NFK_ReceiveData_on_MMP_SPECTATORCONNECT_ext    endp
+
+align 4
+BNET_NFK_ReceiveData_on_MMP_SPECTATORDISCONNECT_ext proc
+;---------- local vars -----------
+Port        equ     <[ebp+0Ch]>
+data        equ     <[ebp-8]>
+FromIP      equ     <[ebp-14Ah]>
+;---------- code -----------------
+    call    AddMessage      ; execute the destroyed call
+    mov     eax, DLL_SYSTEM_SpectatorDisconnect
+    test    eax, eax
+    jz      exit
+    ; alloc 2 strings
+    push    0           ; ip
+    push    0           ; name
+    mov     edx, data
+    lea     edx, [edx + 1]  ;TMP_SpectatorJoin.netname
+    mov     eax, esp
+    call    StringToLStr    ; init name
+    lea     edx, FromIP
+    lea     eax, [esp + 4]
+    call    StringToLStr
+    mov     eax, [esp]
+    mov     edx, [esp + 4]
+    mov     ecx, Port
+    call    DLL_SYSTEM_SpectatorDisconnect
+    mov     eax, esp
+    mov     edx, 2
+    call    LStrArrayClr
+    pop     ecx
+    pop     ecx
+exit:
+    retn
+BNET_NFK_ReceiveData_on_MMP_SPECTATORDISCONNECT_ext endp
 patch209_end:
 
 align 16			; all additional data you could possibly need
@@ -5910,6 +6017,12 @@ ENDIF
                 dd      patch212_end - patch212_begin
                 dd      patch213_begin
                 dd      patch213_end - patch213_begin
+                dd      patch214_begin              ; BD_Init extensions call
+                dd      patch214_end - patch214_begin
+                dd      patch215_begin              ; BNET_NFK_ReceiveData on_MMP_SPECTATORCONNECT extension call
+                dd      patch215_end - patch215_begin
+                dd      patch216_begin              ; BNET_NFK_ReceiveData on_MMP_SPECTATORDISCONNECT extension call
+                dd      patch216_end - patch216_begin
 patchSize_end:
 
 end start
