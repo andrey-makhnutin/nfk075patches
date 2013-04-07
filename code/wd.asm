@@ -5686,20 +5686,24 @@ RightBarTextColor   equ     <[ebp-34h]>
     mov     LeftFragsStr, eax
     mov     RightFragsStr, eax
     
-    mov     eax, mainform
-    mov     eax, [eax + 2D4h]           ; TMainForm.PowerDraw
-    fild    dword ptr [eax + 21D8h]     ; TPowerDraw.Width
-    fild    OPT_DRAWFRAGBARX
-    fild    c100
-    fdivp   st(1), st(0)
-    fmulp   st(1), st(0)
-    fistp   dword ptr RealFragBarX
-    fild    dword ptr [eax + 21DCh]     ; TPowerDraw.Height
-    fild    OPT_DRAWFRAGBARY
-    fild    c100
-    fdivp   st(1), st(0)
-    fmulp   st(1), st(0)
-    fistp   dword ptr RealFragBarY
+    ;mov     eax, mainform
+    ;mov     eax, [eax + 2D4h]           ; TMainForm.PowerDraw
+    ;fild    dword ptr [eax + 21D8h]     ; TPowerDraw.Width
+    ;fild    OPT_DRAWFRAGBARX
+    ;fild    c100
+    ;fdivp   st(1), st(0)
+    ;fmulp   st(1), st(0)
+    ;fistp   dword ptr RealFragBarX
+    ;fild    dword ptr [eax + 21DCh]     ; TPowerDraw.Height
+    ;fild    OPT_DRAWFRAGBARY
+    ;fild    c100
+    ;fdivp   st(1), st(0)
+    ;fmulp   st(1), st(0)
+    ;fistp   dword ptr RealFragBarY
+    movzx   eax, OPT_DRAWFRAGBARX
+    mov     RealFragBarX, eax
+    movzx   edx, OPT_DRAWFRAGBARY
+    mov     RealFragBarY, edx
     
     ; calc frag counts
     call    isGameTeamplay
