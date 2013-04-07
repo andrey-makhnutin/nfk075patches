@@ -457,6 +457,7 @@ patch96_end:
 
 exeAddr	46C3E0h
 patch79_begin:
+TPowerGraph_Rectangle:
 newTPowerGraph_Rectangle	proc
 	mov		eax, 1
 	retn	14h
@@ -505,6 +506,7 @@ patch92_end:
 
 exeAddr	46D0F8h
 patch95_begin:
+TPowerGraph_TextureCol:
 newTPowerGraph_TextureCol	proc
 	mov		eax, 1
 	retn	28h
@@ -583,8 +585,14 @@ newTPowerGraph_RotateEffectFix	proc
 newTPowerGraph_RotateEffectFix	endp
 patch89_end:
 
+exeAddr 46E5ECh
+TPowerFont_TextOut: nop
+
 exeAddr	46E860h
 TPowerFont_AlignedOut:	nop
+
+exeAddr 46EAD0h
+TPowerFont_TextWidth:   nop
 
 exeAddr 47DF2Eh
 patch26_begin:
@@ -716,6 +724,41 @@ GameEnd:		nop
 
 exeAddr 48BCFCh
 CalculateFragBar	proc
+
+exeAddr 48BE73h
+patch218_begin::
+    nop
+    nop
+    call    CalculateFragBar_ex1
+patch218_end::
+
+exeAddr 48BF8Ch
+patch219_begin::
+    nop
+    nop
+    call    CalculateFragBar_ex1
+patch219_end::
+
+exeAddr 48BF99h
+patch220_begin::
+    .if OPT_FREEFLY != 0
+        call    CalculateFragBar_ex2
+        jmp     loc_48C046
+    .endif
+    mov     al, OPT_1BARTRAX
+    cmp     dword ptr g_players[eax * 4], 0
+    jz      loc_48BFD4
+    jmp     loc_48BFC5
+patch220_end::
+
+exeAddr 48BFC5h
+loc_48BFC5: nop
+
+exeAddr 48BFD4h
+loc_48BFD4: nop
+
+exeAddr 48C046h
+loc_48C046: nop
 
 exeAddr 48C181h
 patch161_begin::
@@ -1527,6 +1570,23 @@ DrawMenu_onConnect_connectStr	dd	0
 
 exeAddr 4D21ACh
 ResetMap:	nop
+
+exeAddr 4D5C1Bh
+patch221_begin:
+    jmp     loc_4D5C28
+patch221_end:
+
+exeAddr 4D5C28h
+loc_4D5C28: nop
+
+exeAddr 4D5C48h
+patch217_begin:
+    call    new_FragBar
+    jmp     loc_4D61BF
+patch217_end:
+
+exeAddr 4D61BFh
+loc_4D61BF:     nop
 
 exeAddr 4DA449h
 patch181_begin:
@@ -3317,6 +3377,11 @@ MATCH_DRECORD	db	0
 align 4
 MATCH_DDEMOPLAY db  0
 
+exeAddr 54C2DCh
+CTF_BLUEFLAGSTATUS   db  0
+align 4
+CTF_REDFLAGSTATUS  db  0
+
 exeAddr 54C634h
 OPT_RAILCOLOR1  db  0
 align 4
@@ -3324,14 +3389,30 @@ OPT_RAILCOLOR2  db  0
 align 4
 OPT_SYNC        db  0
 
+exeAddr 54C6B0h
+OPT_1BARTRAX    db  0
+
 exeAddr 54C7A0h
 OPT_SV_ALLOW_R_MODE db  0
 
 exeAddr 54C7C4h
 SYS_MAXAIR  db  0
 
+exeAddr 54C80Ch
+OPT_DRAWFRAGBAR     db  0
+align 4
+OPT_DRAWFRAGBARX    dw  0
+align 4
+OPT_DRAWFRAGBARY    dw  0
+align 4
+OPT_DRAWFRAGBARMYFRAG   dw  0
+align 4
+OPT_DRAWFRAGBAROTHERFRAG   dw  0
+
 exeAddr	54CB68h
 OPT_NETSPECTATOR	db	0
+align 4
+OPT_FREEFLY         db  0
 
 exeAddr	54CCB0h
 MATCH_GAMETYPE		db	0
@@ -5575,7 +5656,339 @@ FromIP      equ     <[ebp-14Ah]>
 exit:
     retn
 BNET_NFK_ReceiveData_on_MMP_SPECTATORDISCONNECT_ext endp
+
+align 4
+new_FragBar  proc
+;---------- local vars -----------
+RealFragBarX        equ     <[ebp-4]>
+RealFragBarY        equ     <[ebp-8]>
+MinFragBarY         equ     <[ebp-0Ch]>
+LeftFragsCount      equ     <[ebp-10h]>
+RightFragsCount     equ     <[ebp-14h]>
+LeftFragsStr        equ     <[ebp-18h]>
+RightFragsStr       equ     <[ebp-1Ch]>
+LeftFragsWidth      equ     <[ebp-20h]>
+RightFragsWidth     equ     <[ebp-24h]>
+LeftBarColor        equ     <[ebp-28h]>
+RightBarColor       equ     <[ebp-2Ch]>
+LeftBarTextColor    equ     <[ebp-30h]>
+RightBarTextColor   equ     <[ebp-34h]>
+;---------- code -----------------
+    push    ebp
+    mov     ebp, esp
+    sub     esp, 34h
+    push    esi
+    push    edi
+    
+    ; init vars
+    xor     eax, eax
+    mov     MinFragBarY, eax
+    mov     LeftFragsStr, eax
+    mov     RightFragsStr, eax
+    
+    mov     eax, mainform
+    mov     eax, [eax + 2D4h]           ; TMainForm.PowerDraw
+    fild    dword ptr [eax + 21D8h]     ; TPowerDraw.Width
+    fild    OPT_DRAWFRAGBARX
+    fild    c100
+    fdivp   st(1), st(0)
+    fmulp   st(1), st(0)
+    fistp   dword ptr RealFragBarX
+    fild    dword ptr [eax + 21DCh]     ; TPowerDraw.Height
+    fild    OPT_DRAWFRAGBARY
+    fild    c100
+    fdivp   st(1), st(0)
+    fmulp   st(1), st(0)
+    fistp   dword ptr RealFragBarY
+    
+    ; calc frag counts
+    call    isGameTeamplay
+    test    al, al
+    .if ZERO?
+        ; for DM games, left is blue, right is red
+        mov     dword ptr LeftBarColor, 88FF0000h
+        mov     dword ptr LeftBarTextColor, 88EEEEEEh
+        mov     dword ptr RightBarColor, 880000CCh
+        mov     dword ptr RightBarTextColor, 88DDDDDDh
+        movzx   eax, OPT_DRAWFRAGBARMYFRAG
+        mov     LeftFragsCount, eax
+        movzx   edx, OPT_DRAWFRAGBAROTHERFRAG
+        mov     RightFragsCount, edx
+    .else
+        ; for TeamPlay games, left is red, right is blue
+        mov     dword ptr LeftBarColor, 880000CCh 
+        mov     dword ptr LeftBarTextColor, 88DDDDDDh
+        mov     dword ptr RightBarColor, 88FF0000h
+        mov     dword ptr RightBarTextColor, 88EEEEEEh
+        movzx   eax, OPT_DRAWFRAGBAROTHERFRAG
+        mov     LeftFragsCount, eax
+        movzx   edx, OPT_DRAWFRAGBARMYFRAG
+        mov     RightFragsCount, edx
+    .endif
+    ; prepare frag strings
+    lea     edx, LeftFragsStr
+    mov     eax, LeftFragsCount
+    call    IntToStr
+    lea     edx, RightFragsStr
+    mov     eax, RightFragsCount
+    call    IntToStr
+    
+    ; calc fragbar widths, because min and max coordinates of fragbar mostly depend on them
+    mov     eax, mainform
+    mov     eax, [eax + 2ECh]   ;TMainForm.font4
+    mov     edx, LeftFragsStr
+    call    TPowerFont_TextWidth
+    add     eax, 7
+    mov     LeftFragsWidth, eax
+    
+    mov     eax, mainform
+    mov     eax, [eax + 2ECh]   ;TMainForm.font4
+    mov     edx, RightFragsStr
+    call    TPowerFont_TextWidth
+    add     eax, 7
+    mov     RightFragsWidth, eax
+    
+    ; draw flags if needed
+    .if MATCH_GAMETYPE == Gametype_CTF
+        ; offset frag bar (always under the flags)
+        add     byte ptr MinFragBarY, 32
+        
+        ; draw red flag
+        ; calc X
+        mov     esi, RealFragBarX
+        sub     esi, 32
+        ; min left flag X is 0
+        .if CARRY?
+            xor     esi, esi
+        .endif
+        ; max left flag X is ScreenWidth - 64
+        mov     eax, mainform
+        mov     eax, [eax + 2D4h]       ; TMainForm.PowerDraw
+        mov     edx, [eax + 21D8h]      ; TPowerDraw.Width
+        sub     edx, 64
+        .if esi > edx
+            mov     esi, edx
+        .endif
+        ; calc Y
+        mov     edi, RealFragBarY
+        sub     edi, 32
+        ; min flags Y is 0
+        .if CARRY?
+            xor     edi, edi
+        .endif
+        ; max flags Y is ScreenHeight - (16 + 32)
+        mov     edx, [eax + 21DCh]      ; TPowerDraw.Height
+        sub     edx, (16 + 32)
+        .if edi > edx
+            mov     edi, edx
+        .endif
+        ; calc X+32 and Y+32
+        mov     eax, esi
+        add     eax, 32
+        mov     edx, edi
+        add     edx, 32
+        
+        push    edi
+        push    eax
+        push    edi
+        push    eax
+        push    edx
+        push    esi
+        push    edx
+        push    0EE0303A1h  ; that's red
+        xor     eax, eax
+        mov     al, CTF_REDFLAGSTATUS
+        push    eax
+        push    102h
+        mov     ecx, esi
+        mov     eax, mainform
+        mov     edx, [eax + 3ECh]   ;TMainForm.Images[51]
+        mov     eax, [eax + 2D4h]   ;TMainForm.PowerDraw
+        call    TPowerGraph_TextureCol
+        
+        ; draw blue flag
+        ; calc X
+        mov     esi, RealFragBarX
+        ; min right flag X is 32
+        .if esi < 32
+            mov     esi, 32
+        .endif
+        ; max right flag X is ScreenWidth - 32
+        mov     eax, mainform
+        mov     eax, [eax + 2D4h]     ; TMainForm.PowerDraw
+        mov     edx, [eax + 21D8h]    ; TPowerDraw.Width
+        sub     edx, 32
+        .if esi > edx
+            mov     esi, edx
+        .endif
+        ; Y is already calculated
+        ; calc X+32 and Y+32
+        mov     eax, esi
+        add     eax, 32
+        mov     edx, edi
+        add     edx, 32
+        
+        push    edi
+        push    eax
+        push    edi
+        push    eax 
+        push    edx
+        push    esi
+        push    edx
+        push    0EEAB3604h  ; that's blue
+        xor     eax, eax
+        mov     al, CTF_BLUEFLAGSTATUS
+        push    eax
+        push    102h
+        mov     ecx, esi
+        mov     eax, mainform
+        mov     edx, [eax + 3ECh]   ;TMainForm.Images[51]
+        mov     eax, [eax + 2D4h]   ;TMainForm.PowerDraw
+        call    TPowerGraph_TextureCol
+    .endif
+    
+    ; draw fragbar
+    .if OPT_DRAWFRAGBAR != 0
+        ; draw left frag
+        ; calc left part X and Y
+        mov     esi, RealFragBarX
+        sub     esi, LeftFragsWidth
+        ; min left fragbar X is 0
+        .if CARRY?
+            xor     esi, esi
+        .endif
+        ; max left fragbar X is ScreenWidth - LeftFragsWidth - RightFragsWidth
+        mov     eax, mainform
+        mov     eax, [eax + 2D4h]       ; TMainForm.PowerDraw
+        mov     edx, [eax + 21D8h]      ; TPowerDraw.Width
+        sub     edx, LeftFragsWidth
+        sub     edx, RightFragsWidth
+        .if esi > edx
+            mov     esi, edx
+        .endif
+        ; min fragbars Y depends on whether there were flags or not. Min coordinate is already calculated in MinFragBarY
+        mov     edi, RealFragBarY
+        .if edi < MinFragBarY
+            mov     edi, MinFragBarY
+        .endif
+        ; max fragbars Y is ScreenHeight - 16
+        mov     edx, [eax + 21DCh]      ; TPowerDraw.Height
+        sub     edx, 16
+        .if edi > edx
+            mov     edi, edx
+        .endif
+        ; draw rectangle
+        push    dword ptr LeftFragsWidth
+        push    10h
+        push    88DDDDDDh
+        push    dword ptr LeftBarColor
+        push    102h
+        mov     ecx, edi
+        mov     edx, esi
+        call    TPowerGraph_Rectangle
+        ; draw text
+        mov     eax, edi
+        sub     eax, 2
+        push    eax
+        push    dword ptr LeftBarTextColor
+        mov     edx, LeftFragsStr
+        mov     ecx, esi
+        add     ecx, 3
+        mov     eax, mainform
+        mov     eax, [eax + 2ECh]   ;TMainForm.font4
+        call    TPowerFont_TextOut
+        
+        ; draw right frag
+        mov     esi, RealFragBarX
+        ; min right fragbar X is left frag bar width
+        .if esi < LeftFragsWidth
+            mov     esi, LeftFragsWidth
+        .endif
+        ; max right fragbar X is ScreenWidth - RightFragsWidth
+        mov     eax, mainform
+        mov     eax, [eax + 2D4h]       ; TMainForm.PowerDraw
+        mov     edx, [eax + 21D8h]      ; TPowerDraw.Width
+        sub     edx, RightFragsWidth
+        .if esi > edx
+            mov     esi, edx
+        .endif
+        ; Y is already calculated
+        ; draw rectangle
+        push    dword ptr RightFragsWidth
+        push    10h
+        push    88DDDDDDh
+        push    dword ptr RightBarColor
+        push    102h
+        mov     ecx, edi
+        mov     edx, esi
+        call    TPowerGraph_Rectangle
+        ; draw text
+        mov     eax, edi
+        sub     eax, 2
+        push    eax
+        push    dword ptr RightBarTextColor
+        mov     edx, RightFragsStr
+        mov     ecx, esi
+        add     ecx, 3
+        mov     eax, mainform
+        mov     eax, [eax + 2ECh]   ;TMainForm.font4
+        call    TPowerFont_TextOut
+    .endif
+    ; free strings
+    lea     eax, LeftFragsStr
+    call    LStrClr
+    lea     eax, RightFragsStr
+    call    LStrClr
+    
+    pop     edi
+    pop     esi
+    mov     esp, ebp
+    pop     ebp
+    retn
+;-------- datas -------
+c100    dd      100
+new_FragBar  endp
+
+align 4
+CalculateFragBar_ex1    proc
+    xor     eax, eax
+    or      al, MATCH_DDEMOPLAY
+    or      al, OPT_NETSPECTATOR
+    test    al, al
+    retn
+CalculateFragBar_ex1    endp
+
+align 4
+CalculateFragBar_ex2    proc
+;------- locals -------
+i               equ     <[ebp-1]>
+mybestscore     equ     <[ebp-0Ch]>
+biggestscore    equ     <[ebp-8]>
+;------- codes --------
+    xor     ecx, ecx
+playersloop:
+    mov     eax, g_players[ecx * 4]
+    test    eax, eax
+    jz      continue
+    mov     edx, [eax + 58h]    ;TPlayer.frags
+    mov     eax, mybestscore
+    cmp     edx, eax
+    jle     @F
+    mov     mybestscore, edx
+    mov     biggestscore, eax
+    jmp     continue
+@@:
+    cmp     edx, biggestscore
+    jle     continue
+    mov     biggestscore, edx
+continue:
+    inc     ecx
+    cmp     cl, 8
+    jnz     playersloop
+    retn
+CalculateFragBar_ex2    endp
 patch209_end:
+
 
 align 16			; all additional data you could possibly need
 patch179_begin:
@@ -6023,6 +6436,16 @@ ENDIF
                 dd      patch215_end - patch215_begin
                 dd      patch216_begin              ; BNET_NFK_ReceiveData on_MMP_SPECTATORDISCONNECT extension call
                 dd      patch216_end - patch216_begin
+                dd      patch217_begin
+                dd      patch217_end - patch217_begin
+                dd      patch218_begin
+                dd      patch218_end - patch218_begin
+                dd      patch219_begin
+                dd      patch219_end - patch219_begin
+                dd      patch220_begin
+                dd      patch220_end - patch220_begin
+                dd      patch221_begin
+                dd      patch221_end - patch221_begin
 patchSize_end:
 
 end start
