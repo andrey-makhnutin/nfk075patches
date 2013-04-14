@@ -719,6 +719,12 @@ getNetPlayersCount: nop
 exeAddr 486E74h
 SpawnBubble:        nop
 
+exeAddr 488690h
+SimpleDeathMessage: nop
+
+exeAddr 488F58h
+DeathMessage:       nop
+
 exeAddr 48A138h
 GameEnd:		nop
 
@@ -1592,6 +1598,22 @@ exeAddr 4DA449h
 patch181_begin:
 	call	MapRestart_resetSpectators
 patch181_end:
+
+exeAddr 4DD579h
+patch223_begin:
+    push    eax
+    mov     eax, g_players[eax * 4]
+    lea     edx, [eax + 7Bh]    ;TPlayer.netname
+    xor     eax, eax
+    mov     al, [ebp - 7]
+    push    eax
+    mov     eax, g_players[eax * 4]
+    call    FollowKillerSimpleDeathMessageHook
+    jmp     loc_4DD5B9
+patch223_end:
+
+exeAddr 4DD5B9h
+loc_4DD5B9:
 
 exeAddr	4E39CCh
 BNETWORK_TMP_PlayerPosUpdate_copy_fill: nop
@@ -2714,6 +2736,18 @@ exeAddr 50ECD1h
 exeAddr 50ED69h
 BNET_NFK_ReceiveData_on_MMP_DAMAGEPLAYER_no_hitsnd: nop
 
+exeAddr 50F49Fh
+patch222_begin:
+    push    eax
+    mov     eax, g_players[eax * 4]
+    lea     edx, [eax + 7Bh]    ;TPlayer.netname
+    mov     eax, [ebp - 34h]
+    push    eax
+    mov     eax, g_players[eax * 4]
+    call    FollowKillerSimpleDeathMessageHook
+    jmp     BNET_NFK_ReceiveData_default
+patch222_end:
+
 exeAddr 512CBAh
 patch168_begin:
 	jmp		BNET_NFK_ReceiveData_on_MMP_CL_OBJDESTROY_isPlasma
@@ -3496,6 +3530,7 @@ checksumDelay   db  0
 OPT_CL_ALLOWDOWNLOAD	db	0
 OPT_SV_ALLOWDOWNLOAD	db	0
 downloadingMap	db	0
+OPT_FOLLOWKILLER    db  0
 align 4
 sleepDelay	db	0
 align 4
@@ -4596,14 +4631,27 @@ check_sv_allowdownload:
 	mov		eax, par0
 	mov		edx, offset lstr_sv_allowdownload
 	call	LStrCmp
-	jnz		next
+	jnz		check_followkiller
 	push	1
 	mov		eax, offset lstr_sv_allowdownload
 	mov		edx, offset OPT_SV_ALLOWDOWNLOAD
 	mov		ecx, par1
 	call	applyCommand_process_boolean
 	jmp		applyCommand_exit
-next:
+
+check_followkiller:    
+    ; check followkiller
+    mov		eax, par0
+	mov		edx, offset lstr_followkiller
+	call	LStrCmp
+	jnz		exit
+	push	0
+	mov		eax, offset lstr_followkiller
+	mov		edx, offset OPT_FOLLOWKILLER
+	mov		ecx, par1
+	call	applyCommand_process_boolean
+	jmp		applyCommand_exit
+exit:
 	call	ismultip
 	jmp		applyCommand_after_ext
 ;----------- datas -----------------
@@ -4616,6 +4664,11 @@ align 4
 dd	0FFFFFFFFh
 dd  16
 lstr_sv_allowdownload	db 'sv_allowdownload', 0
+
+align 4
+dd  0FFFFFFFFh
+dd  12
+lstr_followkiller   db  'followkiller', 0
 
 applyCommand_ext	endp
 patch146_end:
@@ -4663,6 +4716,10 @@ SaveCFG_ext	proc
 	mov		edx, offset lstr_sv_allowdownload
 	mov		ecx, ts
 	call	SaveCFG_save_number
+    movzx   eax, OPT_FOLLOWKILLER
+    mov     edx, offset lstr_followkiller
+    mov     ecx, ts
+    call    SaveCFG_save_number
 	retn
 ;----------- datas -----------------
 align 4
@@ -5991,6 +6048,18 @@ continue:
     jnz     playersloop
     retn
 CalculateFragBar_ex2    endp
+
+align 4
+FollowKillerSimpleDeathMessageHook  proc
+    push    [esp + 0Ch]
+    call    SimpleDeathMessage
+    mov     eax, [esp + 4]
+    .if OPT_FOLLOWKILLER != 0 && al == OPT_1BARTRAX
+        mov     ecx, [esp + 8]
+        mov     OPT_1BARTRAX, cl
+    .endif
+    retn 0Ch
+FollowKillerSimpleDeathMessageHook  endp
 patch209_end:
 
 
@@ -6450,6 +6519,10 @@ ENDIF
                 dd      patch220_end - patch220_begin
                 dd      patch221_begin
                 dd      patch221_end - patch221_begin
+                dd      patch222_begin
+                dd      patch222_end - patch222_begin
+                dd      patch223_begin
+                dd      patch223_end - patch223_begin
 patchSize_end:
 
 end start
