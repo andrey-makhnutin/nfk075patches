@@ -5785,9 +5785,9 @@ RightBarTextColor   equ     <[ebp-34h]>
         mov     dword ptr LeftBarTextColor, 88EEEEEEh
         mov     dword ptr RightBarColor, 880000CCh
         mov     dword ptr RightBarTextColor, 88DDDDDDh
-        movzx   eax, OPT_DRAWFRAGBARMYFRAG
+        movsx   eax, OPT_DRAWFRAGBARMYFRAG
         mov     LeftFragsCount, eax
-        movzx   edx, OPT_DRAWFRAGBAROTHERFRAG
+        movsx   edx, OPT_DRAWFRAGBAROTHERFRAG
         mov     RightFragsCount, edx
     .else
         ; for TeamPlay games, left is red, right is blue
@@ -5795,9 +5795,9 @@ RightBarTextColor   equ     <[ebp-34h]>
         mov     dword ptr LeftBarTextColor, 88DDDDDDh
         mov     dword ptr RightBarColor, 88FF0000h
         mov     dword ptr RightBarTextColor, 88EEEEEEh
-        movzx   eax, OPT_DRAWFRAGBAROTHERFRAG
+        movsx   eax, OPT_DRAWFRAGBAROTHERFRAG
         mov     LeftFragsCount, eax
-        movzx   edx, OPT_DRAWFRAGBARMYFRAG
+        movsx   edx, OPT_DRAWFRAGBARMYFRAG
         mov     RightFragsCount, edx
     .endif
     ; prepare frag strings
