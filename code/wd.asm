@@ -1868,6 +1868,14 @@ l4E5747:	nop
 exeAddr 4E5751h
 l4E5751:    nop
 
+exeAddr 4E59CCh
+CanSpectate:    nop
+
+exeAddr 4E8BC9h
+patch225_begin:
+    call    nextplayer_ex
+patch225_end:
+
 exeAddr 4E9098h
 patch205_begin:
 resolutionCheck proc
@@ -1902,6 +1910,10 @@ patch126_end:
 exeAddr	4E9787h
 DXTimerTimer_isInConsole:	nop
 
+exeAddr 4EEB65h
+patch224_begin:
+    call    onFrame
+patch224_end:
 
 exeAddr 4EEFB3h
 patch18_begin:
@@ -3531,6 +3543,8 @@ OPT_CL_ALLOWDOWNLOAD	db	0
 OPT_SV_ALLOWDOWNLOAD	db	0
 downloadingMap	db	0
 OPT_FOLLOWKILLER    db  0
+KillerFollowDelay   db  0
+KillerID            db  0
 align 4
 sleepDelay	db	0
 align 4
@@ -6056,10 +6070,37 @@ FollowKillerSimpleDeathMessageHook  proc
     mov     eax, [esp + 4]
     .if OPT_FOLLOWKILLER != 0 && al == OPT_1BARTRAX
         mov     ecx, [esp + 8]
-        mov     OPT_1BARTRAX, cl
+        mov     KillerFollowDelay, 75
+        mov     KillerID, cl
     .endif
     retn 0Ch
 FollowKillerSimpleDeathMessageHook  endp
+
+align 4
+onFrame proc
+    .if KillerFollowDelay != 0
+        dec     KillerFollowDelay
+        .if ZERO?
+            xor     ecx, ecx
+            mov     cl, KillerID
+            mov     eax, g_players[ecx * 4]
+            test    eax, eax
+            .if !ZERO?
+                mov     OPT_1BARTRAX, cl
+            .endif
+        .endif
+    .endif
+    ; original proc
+    call    CanSpectate
+    retn
+onFrame endp
+
+align 4
+nextplayer_ex   proc
+    mov     KillerFollowDelay, 0
+    call    GetNumberOfPlayers
+    retn
+nextplayer_ex   endp
 patch209_end:
 
 
@@ -6523,6 +6564,10 @@ ENDIF
                 dd      patch222_end - patch222_begin
                 dd      patch223_begin
                 dd      patch223_end - patch223_begin
+                dd      patch224_begin
+                dd      patch224_end - patch224_begin
+                dd      patch225_begin
+                dd      patch225_end - patch225_begin
 patchSize_end:
 
 end start
