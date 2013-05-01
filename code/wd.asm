@@ -863,6 +863,9 @@ noDamage:
 	call	playsound
 patch164_end:
 
+exeAddr 492B58h
+ItemDisappear:  nop
+
 exeAddr 49CB38h
 IsWaterContentHEAD: nop
 
@@ -1614,6 +1617,11 @@ patch223_end:
 
 exeAddr 4DD5B9h
 loc_4DD5B9:
+
+exeAddr 4DE6F3h
+patch226_begin:
+    call    followPowerup
+patch226_end:
 
 exeAddr	4E39CCh
 BNETWORK_TMP_PlayerPosUpdate_copy_fill: nop
@@ -3475,6 +3483,9 @@ MESSAGEMODE db  0
 exeAddr 54D748h
 PReadBuf    dd  0
 
+exeAddr 54DA48h
+DEarnPowerup    dd  0
+
 exeAddr 54E046h
 byte_54E046		db	0
 
@@ -3545,6 +3556,7 @@ downloadingMap	db	0
 OPT_FOLLOWKILLER    db  0
 KillerFollowDelay   db  0
 KillerID            db  0
+OPT_FOLLOWPOWERUP   db  0
 align 4
 sleepDelay	db	0
 align 4
@@ -4595,7 +4607,7 @@ handle_input:
 	mov		eax, temp1
 	call	AddMessage
 	jmp		exit
-
+    
 bad_input:
 	; build a string 'invalid value "<input value>"'
 	lea		eax, temp1
@@ -4620,6 +4632,46 @@ dd	45
 applyCommand_boolean_show		db	'" is "0". Default is "0". Possible range 0-1.', 0
 
 applyCommand_process_boolean	endp
+
+align 4
+applyCommand_followid   proc
+    push    0
+    test    eax, eax
+    jz      invalidInput
+    cmp     byte ptr [eax + 1], 0
+    jnz     invalidInput
+    xor     ecx, ecx
+    mov     cl, [eax]
+    .if cl < '0' || cl > '9'
+        jmp     invalidInput
+    .endif
+    sub     cl, '0'
+    mov     eax, g_players[ecx * 4]
+    test    eax, eax
+    jz      exit
+    mov     OPT_1BARTRAX, cl
+    jmp     exit
+invalidInput:
+    mov     ecx, eax
+    mov     eax, esp
+	push	offset lstrpart_invalid_value_dq
+	push	ecx
+	push	offset followid_valid_str
+	mov		edx, 3
+	call	LStrCatN
+	mov		eax, [esp]
+	call	AddMessage
+exit:
+    mov     eax, esp
+    call    LStrClr
+    pop     eax
+    retn
+    
+;----------- datas -----------------
+    dd  0FFFFFFFFh
+    dd  23
+followid_valid_str      db  '". Possible range: 0-7.', 0
+applyCommand_followid   endp
 
 align 16
 applyCommand_ext	proc
@@ -4658,13 +4710,37 @@ check_followkiller:
     mov		eax, par0
 	mov		edx, offset lstr_followkiller
 	call	LStrCmp
-	jnz		exit
+	jnz		check_followpowerup
 	push	0
 	mov		eax, offset lstr_followkiller
 	mov		edx, offset OPT_FOLLOWKILLER
 	mov		ecx, par1
 	call	applyCommand_process_boolean
 	jmp		applyCommand_exit
+    
+check_followpowerup:
+    ; check followpowerup
+    mov		eax, par0
+	mov		edx, offset lstr_followpowerup
+	call	LStrCmp
+	jnz		check_followid
+	push	0
+	mov		eax, offset lstr_followpowerup
+	mov		edx, offset OPT_FOLLOWPOWERUP
+	mov		ecx, par1
+	call	applyCommand_process_boolean
+	jmp		applyCommand_exit
+    
+check_followid:
+    ; check followid
+    mov		eax, par0
+	mov		edx, offset lstr_followid
+	call	LStrCmp
+    jnz     exit
+    mov     eax, par1
+    call    applyCommand_followid
+    jmp     applyCommand_exit
+    
 exit:
 	call	ismultip
 	jmp		applyCommand_after_ext
@@ -4683,6 +4759,16 @@ align 4
 dd  0FFFFFFFFh
 dd  12
 lstr_followkiller   db  'followkiller', 0
+
+align 4
+dd  0FFFFFFFFh
+dd  13
+lstr_followpowerup  db  'followpowerup', 0
+
+align 4
+dd  0FFFFFFFFh
+dd  8
+lstr_followid       db  'followid', 0
 
 applyCommand_ext	endp
 patch146_end:
@@ -4732,6 +4818,10 @@ SaveCFG_ext	proc
 	call	SaveCFG_save_number
     movzx   eax, OPT_FOLLOWKILLER
     mov     edx, offset lstr_followkiller
+    mov     ecx, ts
+    call    SaveCFG_save_number
+    movzx   eax, OPT_FOLLOWPOWERUP
+    mov     edx, offset lstr_followpowerup
     mov     ecx, ts
     call    SaveCFG_save_number
 	retn
@@ -6101,6 +6191,16 @@ nextplayer_ex   proc
     call    GetNumberOfPlayers
     retn
 nextplayer_ex   endp
+
+align 4
+followPowerup   proc
+    .if OPT_FOLLOWPOWERUP == 1
+        mov     cl, [ebp - 7]
+        mov     OPT_1BARTRAX, cl
+    .endif
+    mov     eax, DEarnPowerup
+    retn
+followPowerup   endp
 patch209_end:
 
 
@@ -6568,6 +6668,8 @@ ENDIF
                 dd      patch224_end - patch224_begin
                 dd      patch225_begin
                 dd      patch225_end - patch225_begin
+                dd      patch226_begin
+                dd      patch226_end - patch226_begin
 patchSize_end:
 
 end start
